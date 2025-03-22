@@ -3,3 +3,7 @@
 
 
 Windowing library for macOS
+
+> [!NOTE]
+> This library is under development and made for a specific purpose.
+> Not for production!
