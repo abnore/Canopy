@@ -1,4 +1,3 @@
-# Canopy
 <p align="center">
   <img src="https://github.com/user-attachments/assets/61dd51e4-00ce-4f4f-9220-0c98c9e80d8f" width="400" />
 </p>
