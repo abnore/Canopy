@@ -1,37 +1,59 @@
 #ifndef CANOPY_H
 #define CANOPY_H
 
-#include "common.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct canopy_window    canopy_window;
-typedef struct canopy_cursor    canopy_cursor;
-typedef struct canopy_image     canopy_image;
+#include <stdbool.h>
 
-/* Basic windowing */
-canopy_window *canopy_create_window(int width,
-        int height,
-        const char *title
-        /*monitor*/
-        /*window *share*/);
-void        canopy_free_window(canopy_window *window);
-int         canopy_window_should_close(canopy_window *window);
-void        canopy_set_window_should_close(canopy_window *window, int value);
-const char* canopy_get_window_title(canopy_window *window);
-void        canopy_set_window_title(canopy_window *window, const char* title);
-void        canopy_get_window_pos(canopy_window *window, int *pos_x, int *pos_y);
-void        canopy_set_window_pos(canopy_window *window, int pos_x, int pos_y);
-void        canopy_poll_events(void);
+typedef struct canopy_window canopy_window;
+typedef struct canopy_event canopy_event;
 
-/* Events */
-const char* canopy_get_key_name(int key, int scancode);
-int         canopy_get_key_scancode(int key);
-int         canopy_get_key(canopy_window *window, int key);
-int         canopy_get_mouse_button(canopy_window *window, int button);
-void        canopy_get_cursor_pos(canopy_window *window, double *pos_x, double *pos_y);
-void        canopy_set_cursor_pos(canopy_window *window, double pos_x, double pos_y);
-canopy_cursor *canopy_create_cursor(int shape);
-void        canopy_free_cursor(canopy_cursor *cursor);
-void        canopy_set_cursor(canopy_window *window, canopy_cursor *cursor);
+/* Basic Window Handling */
+canopy_window* canopy_create_window(int width, int height, const char* title);
+void canopy_destroy_window(canopy_window *window);
 
+/* Basic Event Handling */
+
+typedef enum {
+    CANOPY_EVENT_NONE,
+    CANOPY_EVENT_MOUSE_DOWN,
+    CANOPY_EVENT_MOUSE_UP,
+    CANOPY_EVENT_MOUSE_MOVE,
+    CANOPY_EVENT_KEY_DOWN,
+    CANOPY_EVENT_KEY_UP,
+    CANOPY_EVENT_WINDOW_CLOSE
+} canopy_event_type;
+
+struct canopy_event {
+    canopy_event_type type;
+
+    union {
+        struct {
+            int key;
+            int modifiers;
+        } key;
+
+        struct {
+            int x;
+            int y;
+            int button;
+            int modifiers;
+        } mouse;
+    };
+};
+
+bool canopy_poll_event(canopy_event *out_event);
+void canopy_pump_events(void);
+bool canopy_window_should_close(canopy_window *window);
+void canopy_refresh_buffer(canopy_window *window);
+void canopy_redraw_buffer(canopy_window *window);
+void canopy_render_bitmap(canopy_window *window, void *buffer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // CANOPY_H
+
