@@ -1,18 +1,19 @@
 #include "canopy.h"
+
 #include "picasso.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 int main() {
     canopy_window* win = canopy_create_window(800, 600, "Hello Canopy");
-    BMP *bmp = picasso_load_bmp("background.bmp");
+    BMP *bmp = picasso_load_bmp("sample.bmp");
     if (!bmp) {
         fprintf(stderr, "Failed to load BMP\n");
-        return 1;
+        bmp = NULL;
     }
 
     printf("Loaded BMP: %dx%d\n", bmp->ih.width, bmp->ih.height);
-    picasso_flip_buffer_vertical(bmp->image_data, bmp->ih.width, bmp->ih.height);
+    if(bmp) picasso_flip_buffer_vertical(bmp->image_data, bmp->ih.width, bmp->ih.height);
 
     canopy_render_bitmap(win, bmp->image_data,
                          bmp->ih.width, bmp->ih.height,

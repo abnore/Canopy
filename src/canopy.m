@@ -235,9 +235,9 @@ static void create_menubar(id delegate)
 }
 
 
-//----------------------------------------
+//--------------------------------------------------------------------------------
 // Public API Implementation
-//----------------------------------------
+//--------------------------------------------------------------------------------
 canopy_window* canopy_create_window(int width, int height, const char* title)
 {
     @autoreleasepool {
