@@ -42,7 +42,7 @@ static void canopy_push_event(canopy_event ev);
 - (void)showCustomAboutPanel:(id)sender
 {
 
-    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"newcanopy/Asset_2.png"];
+    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/Asset_2.svg"];
 
     NSDictionary* options = @{
         @"ApplicationName": @"Canopy",
@@ -123,7 +123,19 @@ static void canopy_push_event(canopy_event ev);
     };
     canopy_push_event(e);
 }
-
+- (void)mouseDragged:(NSEvent *)event {
+    NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
+    canopy_event e = {
+        .type = CANOPY_EVENT_MOUSE_DRAG,
+        .mouse = {
+            .x = (int)pos.x,
+            .y = (int)pos.y,
+            .button = 0,
+            .modifiers = (int)[event modifierFlags]
+        }
+    };
+    canopy_push_event(e);
+}
 
 - (void)drawRect:(NSRect)dirtyRect
 {

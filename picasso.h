@@ -10,7 +10,7 @@
 // Define BMP file header structures
 #pragma pack(push,1) //https://www.ibm.com/docs/no/zos/2.4.0?topic=descriptions-pragma-pack
 typedef struct {
-    uint16_t file_type;                 // File type always BM which is 0x4D42
+    uint16_t file_type;                 // File type always ascii `BM` which is 0x4D42
     uint32_t file_size;                 // Size of the file (in bytes)
     uint16_t reserved1;                 // Reserved, always 0
     uint16_t reserved2;                 // Reserved, always 0
@@ -49,6 +49,13 @@ typedef struct {
     uint32_t *pixels;
 }PPM;
 
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} color;
+
 #pragma pack(pop)
 
 BMP *picasso_load_bmp(const char *filename);
@@ -57,4 +64,8 @@ void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height);
 
 PPM *picasso_load_ppm(const char *filename);
 int picasso_save_to_ppm(PPM *image, const char *file_path);
+
+
+void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c);
+
 #endif // PICASSO_H

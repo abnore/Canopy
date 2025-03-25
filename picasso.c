@@ -92,12 +92,12 @@ int picasso_save_to_ppm(PPM *image, const char *file_path)
 		if (ferror(f)) return_defer(errno);
 
 		for (size_t i = 0; i < image->width*image->height; i++) {
-			// 0xAABBGGRR
+			// 0xAABBGGRR - skipping alpha
 			uint32_t pixel = image->pixels[i];
 			uint8_t bytes[3] = {
-				(pixel>>(8*0)) & 0xFF,
-				(pixel>>(8*1)) & 0xFF,
-				(pixel>>(8*2)) & 0xFF
+				(pixel>>(8*0)) & 0xFF, // Red
+				(pixel>>(8*1)) & 0xFF, // Green
+				(pixel>>(8*2)) & 0xFF  // Blue
 			};
 			fwrite(bytes, sizeof(bytes), 1, f);
 			if (ferror(f)) return_defer(errno);
@@ -107,4 +107,12 @@ int picasso_save_to_ppm(PPM *image, const char *file_path)
 defer:
 	if (f) fclose(f);
 	return result;
+}
+
+
+void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c)
+{
+    for(int i = 0; i < width*height; ++i){
+        pixels[i] = c;
+    }
 }
