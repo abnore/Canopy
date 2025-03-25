@@ -11,20 +11,10 @@ struct canopy_window {
     id 		delegate;
 
     id		bitmapRep;
-    uint8_t 	*framebuffer;
+    uint8_t *framebuffer;
     int		bitmap_width, bitmap_height, pitch;
     bool	should_close;
 };
-
-struct canopy_cursor {
-    id		cursor;
-};
-
-#define CANOPY_MAX_EVENTS 64
-static canopy_event event_queue[CANOPY_MAX_EVENTS];
-static int event_head = 0;
-static int event_tail = 0;
-static void canopy_push_event(canopy_event ev);
 
 //----------------------------------------
 // Window Delegate
@@ -41,7 +31,6 @@ static void canopy_push_event(canopy_event ev);
 }
 - (void)showCustomAboutPanel:(id)sender
 {
-
     NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/Asset_2.svg"];
 
     NSDictionary* options = @{
@@ -62,12 +51,10 @@ static void canopy_push_event(canopy_event ev);
 //----------------------------------------
 @interface CanopyView : NSView
 {
-    uint8_t* buffer;
-    int width;
-    int height;
-    int pitch;
+    int render_color;
 }
-- (void)setBuffer:(uint8_t*)buf width:(int)w height:(int)h pitch:(int)pitch;
+- (void)setRenderColor:(int)color;  // Declare the setter method
+- (int)getRenderColor;  // Declare the setter method
 @end
 @implementation CanopyView
 
@@ -75,13 +62,12 @@ static void canopy_push_event(canopy_event ev);
     return YES; // Makes (0,0) the top-left instead of bottom-left
 }
 
-- (void)setBuffer:(uint8_t*)buf width:(int)w height:(int)h pitch:(int)p
-{
-    buffer = buf;
-    width = w;
-    height = h;
-    pitch = p;
-    [self setNeedsDisplay:YES]; // Triggers redraw
+- (void)setRenderColor:(int)color {
+    render_color = color;  // Set the render_color
+    [self setNeedsDisplay:YES];  // Trigger a redraw if needed
+}
+- (int)getRenderColor {
+    return render_color;
 }
 
 - (void)mouseDown:(NSEvent *)event {
@@ -137,26 +123,6 @@ static void canopy_push_event(canopy_event ev);
     canopy_push_event(e);
 }
 
-- (void)drawRect:(NSRect)dirtyRect
-{
-    if (!buffer) return;
-
-    NSBitmapImageRep* rep = [[NSBitmapImageRep alloc]
-        initWithBitmapDataPlanes:&buffer
-                      pixelsWide:width
-                      pixelsHigh:height
-                   bitsPerSample:8
-                 samplesPerPixel:4
-                        hasAlpha:YES
-                        isPlanar:NO
-                  colorSpaceName:NSDeviceRGBColorSpace
-                     bytesPerRow:pitch
-                    bitsPerPixel:32];
-
-    NSImage* image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
-    [image addRepresentation:rep];
-    [image drawInRect:dirtyRect];
-}
 @end
 
 //----------------------------------------
@@ -246,145 +212,140 @@ static void create_menubar(id delegate)
      setKeyEquivalentModifierMask:NSEventModifierFlagControl | NSEventModifierFlagCommand];
 }
 
+//--------------------------------------------------------------------------------
+// Public API Implementation - C Wrappers
+//--------------------------------------------------------------------------------
+void *canopy_calloc(size_t count, size_t size)
+{
+    return calloc(count, size);
+}
+void canopy_free(void *ptr)
+{
+    free(ptr);
+}
+void *canopy_malloc(size_t size)
+{
+    return malloc(size);
+}
+void *canopy_realloc(void *ptr, size_t size)
+{
+    return realloc(ptr, size);
+}
 
-//--------------------------------------------------------------------------------
-// Public API Implementation
-//--------------------------------------------------------------------------------
+/* Window functions */
 canopy_window* canopy_create_window(int width, int height, const char* title)
 {
     @autoreleasepool {
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        canopy_window* win = malloc(sizeof(canopy_window));
+        canopy_window* win = canopy_malloc(sizeof(canopy_window));
         win->delegate = [[CanopyDelegate alloc] init];
 
         create_menubar(win->delegate);
         NSRect frame = NSMakeRect(0, 0, width, height);
-      	CanopyView* view = [[CanopyView alloc] initWithFrame:frame];
-        NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
+        CanopyView* view = [[CanopyView alloc] initWithFrame:frame];
+        //NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
+        NSUInteger style = WindowStyleMaskTitled | WindowStyleMaskClosable;
 
         win->window = [[NSWindow alloc] initWithContentRect:frame
-                                                   styleMask:style
-                                                     backing:NSBackingStoreBuffered
-                                                       defer:NO];
-	win->view = view; // Store if needed for drawing
+                                                  styleMask:style
+                                                    backing:NSBackingStoreBuffered
+                                                      defer:NO];
+        win->view = view; // Store if needed for drawing
 
         [win->window setTitle:[NSString stringWithUTF8String:title]];
-	[(NSWindow*)win->window center];
+        [(NSWindow*)win->window center];
         [win->window setDelegate:win->delegate];
-	[win->window setContentView:view];
-	[win->window makeKeyAndOrderFront:nil];
-	[win->window setAcceptsMouseMovedEvents:YES];
-	[win->window makeFirstResponder:win->view];
-	[win->view  setWantsLayer:YES];
+        [win->window setContentView:view];
+        [win->window makeKeyAndOrderFront:nil];
+        [win->window setAcceptsMouseMovedEvents:YES];
+        [win->window makeFirstResponder:win->view];
+        [win->view  setWantsLayer:YES];
 
         [NSApp activateIgnoringOtherApps:YES];
 
-	canopy_refresh_buffer(win);
-	win->should_close = false;
+        canopy_clear_buffer(win);
+        win->should_close = false;
 
         return win;
     }
 }
 
-void canopy_pump_events(void)
-{
-    @autoreleasepool {
-        NSEvent* event;
-        while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                            untilDate:nil
-                                               inMode:NSDefaultRunLoopMode
-                                              dequeue:YES])) {
-            [NSApp sendEvent:event];
-            [NSApp updateWindows];
-        }
-    }
-}
-
-void canopy_destroy_window(canopy_window* win)
+void canopy_free_window(canopy_window* win)
 {
     if (!win) return;
     [win->window close];
     [win->delegate release];
-    free(win);
+    canopy_free(win);
     win->should_close = true;
 }
 
 bool canopy_window_should_close(canopy_window *window)
 {
-	return window->should_close;
+    return window->should_close;
 }
 
-bool canopy_poll_event(canopy_event* out_event)
+void canopy_clear_buffer(canopy_window* win)
 {
-    canopy_pump_events();
+    if(win->framebuffer == NULL)
+    {
+        NSView* view = (NSView*)win->view;
+        NSRect bounds = [view bounds];
 
-    if (event_head == event_tail) return false;
-    *out_event = event_queue[event_head];
-    event_head = (event_head + 1) % CANOPY_MAX_EVENTS;
-    return true;
-}
+        win->bitmap_width = (int)bounds.size.width;
+        win->bitmap_height = (int)bounds.size.height;
+        win->pitch = win->bitmap_width * 4;
 
+        // Allocate buffer to match window size
+        win->framebuffer = canopy_malloc(win->pitch * win->bitmap_height);
+        if (!win->framebuffer) {
+            fprintf(stderr, "Failed to allocate framebuffer\n");
+            return;
+        }
+    }
 
-static void canopy_push_event(canopy_event ev) {
-    int next = (event_tail + 1) % CANOPY_MAX_EVENTS;
-    if (next != event_head) { // only add if queue not full
-        event_queue[event_tail] = ev;
-        event_tail = next;
+    // Get the render color (background color) from the view
+    int render_color = [win->view getRenderColor];
+    uint32_t color = (uint32_t)render_color;
+
+    // Clear the framebuffer by filling it with the render color
+    for (int i = 0; i < win->bitmap_width * win->bitmap_height; ++i) {
+        ((uint32_t*)win->framebuffer)[i] = color;
     }
 }
 
-void canopy_refresh_buffer(canopy_window* win)
-{
-    NSView* view = (NSView*)win->view;
-    NSRect bounds = [view bounds];
-
-    win->bitmap_width = (int)bounds.size.width;
-    win->bitmap_height = (int)bounds.size.height;
-    win->pitch = win->bitmap_width * 4;
-
-    // Free old buffer if it exists
-    if (win->framebuffer) {
-        free(win->framebuffer);
-    }
-
-    // Allocate buffer to match window size
-    win->framebuffer = malloc(win->pitch * win->bitmap_height);
-    if (!win->framebuffer) {
-        fprintf(stderr, "Failed to allocate framebuffer\n");
-    }
-}
-
-
-void canopy_redraw_buffer(canopy_window *window)
+void canopy_present_buffer(canopy_window *window)
 {
     @autoreleasepool {
-	if (window->framebuffer == NULL) {
-		NSLog(@"Buffer is NULL in platform_redraw_buffer");
-		return;
-	}
-	NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
-		initWithBitmapDataPlanes: &window->framebuffer
-			      pixelsWide: window->bitmap_width
-			      pixelsHigh: window->bitmap_height
-			   bitsPerSample: 8
-			 samplesPerPixel: 4
-				hasAlpha: YES
-				isPlanar: NO
-			  colorSpaceName: NSDeviceRGBColorSpace
-			     bytesPerRow: window->pitch
-			    bitsPerPixel: 32] autorelease];
+        if (window->framebuffer == NULL) {
+            NSLog(@"Buffer is NULL in canopy_present_buffer");
+            return;
+        }
 
-	NSImage *image = [[[NSImage alloc] initWithSize:
-		NSMakeSize(window->bitmap_width, window->bitmap_height)] autorelease];
+        NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes: &window->framebuffer
+                          pixelsWide: window->bitmap_width
+                          pixelsHigh: window->bitmap_height
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: window->pitch
+                        bitsPerPixel: 32] autorelease];
 
-	[image addRepresentation: rep];
-	[(NSView*)window->view layer].contents = image;
+        NSImage *image = [[[NSImage alloc] initWithSize:
+            NSMakeSize(window->bitmap_width, window->bitmap_height)] autorelease];
+
+        [image addRepresentation: rep];
+        [(NSView*)window->view layer].contents = image;
     }
 }
 
-void canopy_render_bitmap(canopy_window* win, void* small_buf, int w, int h, int x, int y) {
+
+void canopy_raster_bitmap(canopy_window* win, void* small_buf, int w, int h, int x, int y)
+{
     int big_w = win->bitmap_width;
     int big_h = win->bitmap_height;
     uint8_t* dst = win->framebuffer;
@@ -400,4 +361,30 @@ void canopy_render_bitmap(canopy_window* win, void* small_buf, int w, int h, int
         memcpy(dst_row, src_row, w * 4);
     }
 }
+
+void canopy_set_buffer_refresh_color(canopy_window *w, color c)
+{
+    int color_int = (int)((c.r << 24) | (c.g << 16) | (c.b << 8) | c.a);
+
+    // Access the CanopyView instance and call the setter method
+    [w->view setRenderColor:color_int];
+}
+
+
+/* Event functions */
+
+void canopy_pump_events(void)
+{
+    @autoreleasepool {
+        NSEvent* event;
+        while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                           untilDate:nil
+                                              inMode:NSDefaultRunLoopMode
+                                             dequeue:YES])) {
+                                    [NSApp sendEvent:event];
+                                    [NSApp updateWindows];
+        }
+    } // autoreleasepool
+}
+
 
