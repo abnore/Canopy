@@ -42,7 +42,7 @@ static void canopy_push_event(canopy_event ev);
 - (void)showCustomAboutPanel:(id)sender
 {
 
-    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"canopy.png"];
+    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"newcanopy/Asset_2.png"];
 
     NSDictionary* options = @{
         @"ApplicationName": @"Canopy",
