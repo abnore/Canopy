@@ -1,8 +1,11 @@
 #ifndef PICASSO_H
 #define PICASSO_H
-
+/* Will support BMP, PPM, PNG and eventually JPG
+ * */
+#include <stdio.h>  /* for FILE, fopen, fread, fclose*/
+#include <string.h> /* all the mem functions */
+#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 // Define BMP file header structures
 #pragma pack(push,1) //https://www.ibm.com/docs/no/zos/2.4.0?topic=descriptions-pragma-pack
@@ -12,7 +15,7 @@ typedef struct {
     uint16_t reserved1;                 // Reserved, always 0
     uint16_t reserved2;                 // Reserved, always 0
     uint32_t offset_data;               // Start position of pixel data (bytes from the beginning of the file)
-} BMPFileHeader;
+} BMP_file_header;
 
 typedef struct {
     uint32_t size;                      // Size of this header (in bytes)
@@ -26,76 +29,32 @@ typedef struct {
     int32_t y_pixels_per_meter;
     uint32_t colors_used;               // No. color indexes in the color table. Use 0 for the max number of colors allowed by bitCount
     uint32_t colors_important;          // No. of colors used for displaying the bitmap. If 0 all colors are required
-} BMPInfoHeader;
+} BMP_info_header;
 
 typedef struct {
-        BMPFileHeader fh;
-        BMPInfoHeader ih;
-        uint8_t *image;
+        BMP_file_header fh;
+        BMP_info_header ih;
+        uint8_t *image_data;
 }BMP;
+
+/* PPM header is literal ascii - must be parsed
+ * like a text file, not with headers.
+ *  5036 0a33 3030 2032 3030 0a32 3535 0a
+ *  P 6  \n3  0 0    2  0  0 \n2   5 5 \n
+ * */
+typedef struct {
+    size_t width;
+    size_t height;
+    size_t maxval;
+    uint32_t *pixels;
+}PPM;
+
 #pragma pack(pop)
 
-uint8_t *load_bmp(const char *filename, BMP *bmp) {
-       BMPFileHeader *fileHeader = &bmp->fh;
-       BMPInfoHeader *infoHeader = &bmp->ih;
+BMP *picasso_load_bmp(const char *filename);
+int picasso_save_to_bmp(BMP *image, const char *filename);
+void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height);
 
-        FILE *file = fopen(filename, "rb");
-        if (!file) {
-                perror("Unable to open file");
-                return NULL;
-        }
-
-        // Read file header
-        fread(fileHeader, sizeof(BMPFileHeader), 1, file);
-        if (fileHeader->file_type != 0x4D42) {
-                printf("Not a valid BMP file\n");
-                fclose(file);
-                return NULL;
-        }
-
-        // Read info header
-        fread(infoHeader, sizeof(BMPInfoHeader), 1, file);
-
-        // Move file pointer to the beginning of bitmap data
-        fseek(file, fileHeader->offset_data, SEEK_SET);
-
-        // Allocate memory for the bitmap data
-        uint8_t *data = (uint8_t *)malloc(infoHeader->size_image);
-        if (!data) {
-                printf("Memory allocation failed\n");
-                fclose(file);
-                return NULL;
-        }
-
-        // Read the bitmap data
-        fread(data, infoHeader->size_image, 1, file);
-
-        fclose(file);
-
-        // Swap color channels since mac uses BGRA, not RGBA
-        for (int i = 0; i < infoHeader->width * infoHeader->height; ++i)
-        {
-                uint8_t temp        = data[i * 4 + 0];  // Blue
-                data[i * 4 + 0]     = data[i * 4 + 2];  // Swap Red and Blue
-                data[i * 4 + 2]     = temp;             // Assign Red to the original Blue
-        }
-        return data;
-}
-void flip_buffer_vertical(uint8_t *buffer, int width, int height) {
-    int bytes_per_pixel = 4; // RGBA
-    int row_size = width * bytes_per_pixel;
-
-    uint8_t temp_row[row_size]; // Temporary row buffer
-
-    for (int y = 0; y < height / 2; y++) {
-        int top_index = y * row_size;
-        int bottom_index = (height - y - 1) * row_size;
-
-        // Swap the rows
-        memcpy(temp_row, &buffer[top_index], row_size);
-        memcpy(&buffer[top_index], &buffer[bottom_index], row_size);
-        memcpy(&buffer[bottom_index], temp_row, row_size);
-    }
-}
-
+PPM *picasso_load_ppm(const char *filename);
+int picasso_save_to_ppm(PPM *image, const char *file_path);
 #endif // PICASSO_H

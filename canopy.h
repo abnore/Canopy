@@ -49,7 +49,7 @@ void canopy_pump_events(void);
 bool canopy_window_should_close(canopy_window *window);
 void canopy_refresh_buffer(canopy_window *window);
 void canopy_redraw_buffer(canopy_window *window);
-void canopy_render_bitmap(canopy_window *window, void *buffer);
+void canopy_render_bitmap(canopy_window* win, void* buffer, int w, int h, int x, int y);
 
 #ifdef __cplusplus
 }

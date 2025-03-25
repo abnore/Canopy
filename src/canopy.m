@@ -250,7 +250,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
         create_menubar(win->delegate);
         NSRect frame = NSMakeRect(0, 0, width, height);
       	CanopyView* view = [[CanopyView alloc] initWithFrame:frame];
-        NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+        NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
 
         win->window = [[NSWindow alloc] initWithContentRect:frame
                                                    styleMask:style
@@ -259,6 +259,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
 	win->view = view; // Store if needed for drawing
 
         [win->window setTitle:[NSString stringWithUTF8String:title]];
+	[(NSWindow*)win->window center];
         [win->window setDelegate:win->delegate];
 	[win->window setContentView:view];
 	[win->window makeKeyAndOrderFront:nil];
@@ -268,6 +269,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
 
         [NSApp activateIgnoringOtherApps:YES];
 
+	canopy_refresh_buffer(win);
 	win->should_close = false;
 
         return win;
@@ -321,44 +323,69 @@ static void canopy_push_event(canopy_event ev) {
     }
 }
 
-void canopy_refresh_buffer(canopy_window* window)
+void canopy_refresh_buffer(canopy_window* win)
 {
-    NSView* view = (NSView*)window->view;
-
+    NSView* view = (NSView*)win->view;
     NSRect bounds = [view bounds];
-    window->bitmap_width = (int)bounds.size.width;
-    window->bitmap_height = (int)bounds.size.height;
-    window->pitch = window->bitmap_width * 4;
-}
 
-void canopy_redraw_buffer(canopy_window* window)
-{
-    @autoreleasepool {
-        if (window->framebuffer == NULL) {
-            NSLog(@"Buffer is NULL in canopy_redraw_buffer");
-            return;
-        }
+    win->bitmap_width = (int)bounds.size.width;
+    win->bitmap_height = (int)bounds.size.height;
+    win->pitch = win->bitmap_width * 4;
 
-        NSBitmapImageRep* rep = [[[NSBitmapImageRep alloc]
-            initWithBitmapDataPlanes:&window->framebuffer
-                          pixelsWide:window->bitmap_width
-                          pixelsHigh:window->bitmap_height
-                       bitsPerSample:8
-                     samplesPerPixel:4
-                            hasAlpha:YES
-                            isPlanar:NO
-                      colorSpaceName:NSDeviceRGBColorSpace
-                         bytesPerRow:window->pitch
-                        bitsPerPixel:32] autorelease];
+    // Free old buffer if it exists
+    if (win->framebuffer) {
+        free(win->framebuffer);
+    }
 
-        NSImage* image = [[[NSImage alloc] initWithSize:NSMakeSize(window->bitmap_width, window->bitmap_height)] autorelease];
-        [image addRepresentation:rep];
-
-        NSView* view = (NSView*)window->view;
-        [view.layer setContents:image];
+    // Allocate buffer to match window size
+    win->framebuffer = malloc(win->pitch * win->bitmap_height);
+    if (!win->framebuffer) {
+        fprintf(stderr, "Failed to allocate framebuffer\n");
     }
 }
 
-void canopy_render_bitmap(canopy_window *window, void *buffer) {
-    window->framebuffer = (uint8_t*)buffer;
+
+void canopy_redraw_buffer(canopy_window *window)
+{
+    @autoreleasepool {
+	if (window->framebuffer == NULL) {
+		NSLog(@"Buffer is NULL in platform_redraw_buffer");
+		return;
+	}
+	NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
+		initWithBitmapDataPlanes: &window->framebuffer
+			      pixelsWide: window->bitmap_width
+			      pixelsHigh: window->bitmap_height
+			   bitsPerSample: 8
+			 samplesPerPixel: 4
+				hasAlpha: YES
+				isPlanar: NO
+			  colorSpaceName: NSDeviceRGBColorSpace
+			     bytesPerRow: window->pitch
+			    bitsPerPixel: 32] autorelease];
+
+	NSImage *image = [[[NSImage alloc] initWithSize:
+		NSMakeSize(window->bitmap_width, window->bitmap_height)] autorelease];
+
+	[image addRepresentation: rep];
+	[(NSView*)window->view layer].contents = image;
+    }
 }
+
+void canopy_render_bitmap(canopy_window* win, void* small_buf, int w, int h, int x, int y) {
+    int big_w = win->bitmap_width;
+    int big_h = win->bitmap_height;
+    uint8_t* dst = win->framebuffer;
+
+    if (x + w > big_w || y + h > big_h) {
+        printf("Bitmap out of bounds!\n");
+        return;
+    }
+
+    for (int row = 0; row < h; ++row) {
+        uint8_t* dst_row = dst + ((y + row) * big_w + x) * 4;
+        uint8_t* src_row = ((uint8_t*)small_buf) + row * w * 4;
+        memcpy(dst_row, src_row, w * 4);
+    }
+}
+
