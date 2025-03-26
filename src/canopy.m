@@ -30,7 +30,7 @@ struct canopy_window {
 }
 - (void)showCustomAboutPanel:(id)sender
 {
-    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/icon2.png"];
+    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/icon.svg"];
 
     NSDictionary* options = @{
         @"ApplicationName": @"Canopy",
@@ -318,7 +318,6 @@ void canopy_clear_buffer(canopy_window* win)
         }
     }
 
-    printf("render_color = %08x\n", [win->view getRenderColor]);
     // Get the render color (background color) from the view
     uint32_t color = (uint32_t)[win->view getRenderColor];
 

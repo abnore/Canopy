@@ -34,10 +34,10 @@ static inline uint32_t color_to_u32(color c)
 static inline color u32_to_color(uint32_t val)
 {
     return (color){
-        .r = (val >> 24) & 0xFF,
-        .g = (val >> 16) & 0xFF,
-        .b = (val >> 8)  & 0xFF,
-        .a = val & 0xFF
+        .a = (val >> 24) & 0xFF,
+        .r = (val >> 16) & 0xFF,
+        .g = (val >> 8)  & 0xFF,
+        .b = val & 0xFF
     };
 }
 
