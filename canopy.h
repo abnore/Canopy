@@ -11,6 +11,7 @@ extern "C" {
 #include "picasso.h"
 #include "canopy_time.h"
 #include "logger.h"
+#include "input.h"
 
 typedef int WINDOW_STYLE_FLAGS;
 
@@ -50,62 +51,112 @@ void *canopy_realloc(void *ptr, size_t size);
     directly (you don’t know its size!).
 */
 typedef struct canopy_window    canopy_window;
-typedef struct canopy_event     canopy_event;
 
 /* Basic Window Handling */
 canopy_window* canopy_create_window(int width, int height, const char* title);
+void canopy_set_icon(const char* filepath);
 void canopy_free_window(canopy_window *w);
 bool canopy_window_should_close(canopy_window *w);
 void canopy_clear_buffer(canopy_window *w);
 uint8_t *canopy_get_framebuffer(canopy_window *w);
 void canopy_present_buffer(canopy_window *w);
-void canopy_raster_bitmap(canopy_window *w, void* framebuffer, int width, int height, int x, int y);
 void canopy_set_buffer_refresh_color(canopy_window *w, color c);
+void canopy_raster_bitmap_ex(canopy_window* win,
+                             void* src_buf, int src_w, int src_h,
+                             int dest_x, int dest_y,
+                             int dest_w, int dest_h,
+                             bool scale,
+                             bool blend,
+                             bool bilinear);
+#define canopy_raster_bitmap(win, buf, w, h, x, y) \
+    canopy_raster_bitmap_ex(win, buf, w, h, x, y, 0, 0, false, false, false)
+
+#define canopy_raster_bitmap_scaled(win, buf, w, h, x, y, dw, dh) \
+    canopy_raster_bitmap_ex(win, buf, w, h, x, y, dw, dh, true, false, false)
+
+#define canopy_raster_bitmap_scaled_blended(win, buf, w, h, x, y, dw, dh) \
+    canopy_raster_bitmap_ex(win, buf, w, h, x, y, dw, dh, true, true, false)
 
 
-
-
-/* Basic Event Handling */
+/* -------------------- Event Handling -------------------- */
 
 #define CANOPY_MAX_EVENTS 64
 
+//----------------------------------------
+// Event Type Categories
+//----------------------------------------
 typedef enum {
     CANOPY_EVENT_NONE,
-    CANOPY_EVENT_MOUSE_DOWN,
-    CANOPY_EVENT_MOUSE_UP,
-    CANOPY_EVENT_MOUSE_MOVE,
-    CANOPY_EVENT_MOUSE_DRAG,
-    CANOPY_EVENT_KEY_DOWN,
-    CANOPY_EVENT_KEY_UP,
-    CANOPY_EVENT_WINDOW_CLOSE
+    CANOPY_EVENT_MOUSE,
+    CANOPY_EVENT_KEY,
 } canopy_event_type;
 
-struct canopy_event {
+//----------------------------------------
+// Mouse Sub-Actions
+//----------------------------------------
+typedef enum {
+    CANOPY_MOUSE_NONE,
+    CANOPY_MOUSE_PRESS,
+    CANOPY_MOUSE_RELEASE,
+    CANOPY_MOUSE_MOVE,
+    CANOPY_MOUSE_DRAG,
+    CANOPY_MOUSE_SCROLL,
+    CANOPY_MOUSE_ENTER,
+    CANOPY_MOUSE_EXIT
+} canopy_mouse_action;
+
+//----------------------------------------
+// Keyboard Sub-Actions
+//----------------------------------------
+typedef enum {
+    CANOPY_KEY_NONE,
+    CANOPY_KEY_PRESS,
+    CANOPY_KEY_RELEASE
+} canopy_key_action;
+
+//----------------------------------------
+// Mouse Event Struct
+//----------------------------------------
+typedef struct {
+    canopy_mouse_action action;
+    int x, y;
+    mouse_buttons button;        // 0 = left, 1 = right, 2 = middle
+    int modifiers;     // CMD, SHIFT, etc
+    int click_count;   // 1 = click, 2 = double-click
+    float scroll_x;    // for scroll events
+    float scroll_y;
+} canopy_mouse_event;
+
+//----------------------------------------
+// Key Event Struct
+//----------------------------------------
+typedef struct {
+    canopy_key_action action;
+    keys keycode;
+    int modifiers;
+    int is_repeat;
+} canopy_key_event;
+
+//----------------------------------------
+// Main Event Struct
+//----------------------------------------
+typedef struct {
     canopy_event_type type;
 
     union {
-        struct {
-            int key;
-            int modifiers;
-        } key;
-
-        struct {
-            int x;
-            int y;
-            int button;
-            int modifiers;
-        } mouse;
+        canopy_mouse_event mouse;
+        canopy_key_event   key;
     };
-};
+} canopy_event;
+
 
 bool canopy_poll_event(canopy_event *out_event);
 void canopy_pump_events(void);
-void canopy_push_event(canopy_event ev);
+void canopy_push_event(canopy_event event);
 
-/* Not Implemented */
-void        canopy_set_window_should_close(canopy_window *window, int value);
-const char* canopy_get_window_title(canopy_window *window);
-void        canopy_set_window_title(canopy_window *window, const char* title);
+const char* canopy_key_to_string(keys key);
+
+/* Not Implemented - dont know if i need them */
 void        canopy_get_window_pos(canopy_window *window, int *pos_x, int *pos_y);
 void        canopy_set_window_pos(canopy_window *window, int pos_x, int pos_y);
 const char* canopy_get_key_name(int key, int scancode);

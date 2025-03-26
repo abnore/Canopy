@@ -14,8 +14,6 @@ void canopy_push_event(canopy_event ev) {
 
 bool canopy_poll_event(canopy_event* out_event)
 {
-    canopy_pump_events();
-
     if (event_head == event_tail) return false;
     *out_event = event_queue[event_head];
     event_head = (event_head + 1) % CANOPY_MAX_EVENTS;

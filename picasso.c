@@ -1,4 +1,5 @@
 #include "picasso.h"
+#include "logger.h"
 
 #include <errno.h>
 
@@ -112,6 +113,7 @@ defer:
 
 void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c)
 {
+    DEBUG("color is %08x", color_to_u32(c));
     for(int i = 0; i < width*height; ++i){
         pixels[i] = c;
     }
