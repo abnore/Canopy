@@ -23,7 +23,6 @@ struct canopy_window {
 @end
 
 @implementation CanopyDelegate
-
 - (BOOL)windowShouldClose:(id)sender
 {
     [NSApp terminate:nil];
@@ -31,7 +30,7 @@ struct canopy_window {
 }
 - (void)showCustomAboutPanel:(id)sender
 {
-    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/Asset_2.svg"];
+    NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/icon2.png"];
 
     NSDictionary* options = @{
         @"ApplicationName": @"Canopy",
@@ -51,13 +50,21 @@ struct canopy_window {
 //----------------------------------------
 @interface CanopyView : NSView
 {
-    int render_color;
+    int render_color; // Instance variable with getter and setter
 }
 - (void)setRenderColor:(int)color;  // Declare the setter method
 - (int)getRenderColor;  // Declare the setter method
 @end
-@implementation CanopyView
 
+@implementation CanopyView
+- (instancetype)initWithFrame:(NSRect)frame
+{
+    self = [super initWithFrame:frame];
+    if (self) {
+        render_color = color_to_u32(CANOPY_DARK_GRAY);
+    }
+    return self;
+}
 - (BOOL)isFlipped {
     return YES; // Makes (0,0) the top-left instead of bottom-left
 }
@@ -245,6 +252,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
         create_menubar(win->delegate);
         NSRect frame = NSMakeRect(0, 0, width, height);
         CanopyView* view = [[CanopyView alloc] initWithFrame:frame];
+
         //NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
         NSUInteger style = WindowStyleMaskTitled | WindowStyleMaskClosable;
 
@@ -261,7 +269,11 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
         [win->window makeKeyAndOrderFront:nil];
         [win->window setAcceptsMouseMovedEvents:YES];
         [win->window makeFirstResponder:win->view];
-        [win->view  setWantsLayer:YES];
+        [win->view setWantsLayer:YES];
+        CALayer* layer = [view layer];
+
+        [layer setOpaque:YES];
+        [win->view setOpaque:YES];
 
         [NSApp activateIgnoringOtherApps:YES];
 
@@ -277,6 +289,7 @@ void canopy_free_window(canopy_window* win)
     if (!win) return;
     [win->window close];
     [win->delegate release];
+    if(win->framebuffer) canopy_free(win->framebuffer);
     canopy_free(win);
     win->should_close = true;
 }
@@ -305,9 +318,9 @@ void canopy_clear_buffer(canopy_window* win)
         }
     }
 
+    printf("render_color = %08x\n", [win->view getRenderColor]);
     // Get the render color (background color) from the view
-    int render_color = [win->view getRenderColor];
-    uint32_t color = (uint32_t)render_color;
+    uint32_t color = (uint32_t)[win->view getRenderColor];
 
     // Clear the framebuffer by filling it with the render color
     for (int i = 0; i < win->bitmap_width * win->bitmap_height; ++i) {
@@ -350,23 +363,58 @@ void canopy_raster_bitmap(canopy_window* win, void* small_buf, int w, int h, int
     int big_h = win->bitmap_height;
     uint8_t* dst = win->framebuffer;
 
-    if (x + w > big_w || y + h > big_h) {
-        printf("Bitmap out of bounds!\n");
-        return;
+    if (!dst || !small_buf) return;
+
+    // Calculate visible region (clipping)
+    int src_x = 0;
+    int src_y = 0;
+    int draw_w = w;
+    int draw_h = h;
+
+    // Clip left/top
+    if (x < 0) {
+        src_x = -x;
+        draw_w -= src_x;
+        x = 0;
+    }
+    if (y < 0) {
+        src_y = -y;
+        draw_h -= src_y;
+        y = 0;
     }
 
-    for (int row = 0; row < h; ++row) {
+    // Clip right/bottom
+    if (x + draw_w > big_w) {
+        draw_w = big_w - x;
+    }
+    if (y + draw_h > big_h) {
+        draw_h = big_h - y;
+    }
+
+    // Fully clipped
+    if (draw_w <= 0 || draw_h <= 0) return;
+
+    // Raster visible portion
+    for (int row = 0; row < draw_h; ++row) {
         uint8_t* dst_row = dst + ((y + row) * big_w + x) * 4;
-        uint8_t* src_row = ((uint8_t*)small_buf) + row * w * 4;
-        memcpy(dst_row, src_row, w * 4);
+        uint8_t* src_row = ((uint8_t*)small_buf) + ((src_y + row) * w + src_x) * 4;
+        memcpy(dst_row, src_row, draw_w * 4);
+        #ifdef CANOPY_DEBUG_CLIPPING
+        printf("Drawing clipped bitmap at %d,%d size %d,%d\n", x, y, draw_w, draw_h);
+        #endif
+
     }
 }
 
+uint8_t *canopy_get_framebuffer(canopy_window *window)
+{
+    return window->framebuffer;
+}
 void canopy_set_buffer_refresh_color(canopy_window *w, color c)
 {
-    int color_int = (int)((c.r << 24) | (c.g << 16) | (c.b << 8) | c.a);
+    //int color_int = (int)((c.r << 24) | (c.g << 16) | (c.b << 8) | c.a);
+    int color_int = color_to_u32(c);
 
-    // Access the CanopyView instance and call the setter method
     [w->view setRenderColor:color_int];
 }
 

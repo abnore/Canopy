@@ -56,6 +56,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title);
 void canopy_free_window(canopy_window *w);
 bool canopy_window_should_close(canopy_window *w);
 void canopy_clear_buffer(canopy_window *w);
+uint8_t *canopy_get_framebuffer(canopy_window *w);
 void canopy_present_buffer(canopy_window *w);
 void canopy_raster_bitmap(canopy_window *w, void* framebuffer, int width, int height, int x, int y);
 void canopy_set_buffer_refresh_color(canopy_window *w, color c);

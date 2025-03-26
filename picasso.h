@@ -7,6 +7,39 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef struct {
+    uint8_t a;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+}color;
+// ARGB layout expected by Cocoa and NSBitmapImageRep
+#define CANOPY_RED         ((color){0xff, 0x7f, 0x20, 0x20})
+#define CANOPY_GREEN       ((color){0xff, 0x20, 0x7f, 0x20})
+#define CANOPY_BLUE        ((color){0xff, 0x20, 0x20, 0x7f})
+#define CANOPY_WHITE       ((color){0xff, 0xff, 0xff, 0xff})
+#define CANOPY_BLACK       ((color){0xff, 0x00, 0x00, 0x00})
+#define CANOPY_GRAY        ((color){0xff, 0x30, 0x30, 0x30})
+#define CANOPY_DARK_GRAY   ((color){0xff, 0x20, 0x20, 0x20})
+#define CANOPY_LIGHT_GRAY  ((color){0xff, 0x40, 0x40, 0x40})
+
+
+static inline uint32_t color_to_u32(color c)
+{
+    return ((uint32_t)c.a << 24) |
+           ((uint32_t)c.r << 16) |
+           ((uint32_t)c.g << 8)  |
+           ((uint32_t)c.b);
+}
+static inline color u32_to_color(uint32_t val)
+{
+    return (color){
+        .r = (val >> 24) & 0xFF,
+        .g = (val >> 16) & 0xFF,
+        .b = (val >> 8)  & 0xFF,
+        .a = val & 0xFF
+    };
+}
 
 // Define BMP file header structures
 #pragma pack(push,1) //https://www.ibm.com/docs/no/zos/2.4.0?topic=descriptions-pragma-pack
@@ -49,14 +82,6 @@ typedef struct {
     size_t maxval;
     uint32_t *pixels;
 }PPM;
-
-
-typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
-}color;
 
 #pragma pack(pop)
 
