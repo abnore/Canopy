@@ -10,6 +10,7 @@ extern "C" {
 
 #include "picasso.h"
 #include "canopy_time.h"
+#include "logger.h"
 
 typedef int WINDOW_STYLE_FLAGS;
 

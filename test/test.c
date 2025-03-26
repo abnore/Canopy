@@ -1,4 +1,5 @@
 #include "canopy.h"
+#include "logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,12 +9,21 @@
 
 int main(void)
 {
+    if(!init_log(NULL,true)) printf("Failed to setup logger\n");
+    FATAL("Testing log");
+    FATAL("Testing log");
+    ERROR("Testing log");
+    WARN("Testing log");
+    INFO("Testing log");
+    DEBUG("Testing log");
+    TRACE("Testing log");
+
     canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Hello Canopy");
     BMP *bmp_example = picasso_load_bmp("sample.bmp");
     BMP *bmp_mine = picasso_load_bmp("background.bmp");
     BMP *bmp_tile = picasso_load_bmp("assets/tiles.bmp");
 
-    if(bmp_example) picasso_flip_buffer_vertical(bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height);
+        if(bmp_example) picasso_flip_buffer_vertical(bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height);
     if(bmp_mine) picasso_flip_buffer_vertical(bmp_mine->image_data, bmp_mine->ih.width, bmp_mine->ih.height);
     if(bmp_tile) picasso_flip_buffer_vertical(bmp_tile->image_data, bmp_tile->ih.width, bmp_tile->ih.height);
 
@@ -22,7 +32,7 @@ int main(void)
     int ypos = 100;
 
     //canopy_set_buffer_refresh_color(win, CANOPY_GREEN);
-    printf("first pixel = %08x\n", ((uint32_t*)canopy_get_framebuffer(win))[0]);
+    TRACE("first pixel = %08x\n", ((uint32_t*)canopy_get_framebuffer(win))[0]);
 
     canopy_init_timer();
     canopy_set_fps(60);
@@ -75,6 +85,7 @@ int main(void)
         }
     }
 
+    shutdown_log();
     canopy_free_window(win);
     free(bmp_mine->image_data);
     free(bmp_mine);

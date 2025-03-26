@@ -20,14 +20,30 @@ struct canopy_window {
 // Window Delegate
 //----------------------------------------
 @interface CanopyDelegate : NSObject <NSWindowDelegate>
+{
+    canopy_window* window;
+}
+- (instancetype)initWithCanopyWindow:(canopy_window*)initWindow;
 @end
 
+
 @implementation CanopyDelegate
+
+- (instancetype)initWithCanopyWindow:(canopy_window*)initWindow
+{
+    self = [super init];
+    if (self) {
+        window = initWindow;
+    }
+    return self;
+}
+
 - (BOOL)windowShouldClose:(id)sender
 {
-    [NSApp terminate:nil];
-    return YES;
+    window->should_close = true; // ← Notify the C code
+    return NO; // ← Let your app close gracefully
 }
+
 - (void)showCustomAboutPanel:(id)sender
 {
     NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/icon.svg"];
@@ -247,7 +263,7 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
         canopy_window* win = canopy_malloc(sizeof(canopy_window));
-        win->delegate = [[CanopyDelegate alloc] init];
+        win->delegate = [[CanopyDelegate alloc] initWithCanopyWindow:win];
 
         create_menubar(win->delegate);
         NSRect frame = NSMakeRect(0, 0, width, height);
@@ -279,7 +295,8 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
 
         canopy_clear_buffer(win);
         win->should_close = false;
-
+        TRACE("Window created");
+        if(!win) ERROR("Window failed to be created");
         return win;
     }
 }
@@ -287,12 +304,19 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
 void canopy_free_window(canopy_window* win)
 {
     if (!win) return;
+
     [win->window close];
     [win->delegate release];
-    if(win->framebuffer) canopy_free(win->framebuffer);
+
+    if (win->framebuffer) {
+        canopy_free(win->framebuffer);
+    }
+
+    TRACE("Window closed");  // ← Now safe
+
     canopy_free(win);
-    win->should_close = true;
 }
+
 
 bool canopy_window_should_close(canopy_window *window)
 {
