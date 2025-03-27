@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/61dd51e4-00ce-4f4f-9220-0c98c9e80d8f" width="400" alt="Canopy Logo" />
+  <img src="https://github.com/user-attachments/assets/671c5596-605c-4842-856a-12175a9375d8" width="400" alt="Canopy Logo" />
 </p>
-
-<h1 align="center">Canopy</h1>
 
 <p align="center">
   <strong>Lightweight windowing and event handling for macOS, built in C with a Cocoa backend.</strong>
