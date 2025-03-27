@@ -38,11 +38,6 @@ Canopy is **under active development** and is evolving quickly.
 
 ---
 
-## Example Output
-
-> (Examples and demos to come)
-
----
 
 ## Goals
 
@@ -77,7 +72,15 @@ Canopy is **under active development** and is evolving quickly.
 - C99-compatible compiler
 
 ### 🧪 Minimal Example
+## Example Output
 
+> (Examples and demos to come)
+>
+> <p align="center">
+  <img src="https://github.com/user-attachments/assets/4c51f666-d0c0-47c5-830c-7106e9fa33d0" width="300" alt="Example output with colored background" />
+</p>
+
+---
 ```c
 /*******************************************************************************************
 *
@@ -163,6 +166,7 @@ int main(void)
     return 0;
 }
 ```
+
 
 ### 🛠️ Building
 
