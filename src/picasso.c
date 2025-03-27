@@ -5,6 +5,38 @@
 
 #define return_defer(value) do { result = (value); goto defer; } while(0)
 
+const char* color_to_string(color c)
+{
+#define X(x) color_to_u32(x)
+
+    uint32_t value = X(c);
+    switch (value) {
+        case X(BLUE):        return "BLUE";
+        case X(GREEN):       return "GREEN";
+        case X(RED):         return "RED";
+
+        case X(WHITE):       return "WHITE";
+        case X(BLACK):       return "BLACK";
+        case X(GRAY):        return "GRAY";
+        case X(LIGHT_GRAY):  return "LIGHT_GRAY";
+        case X(DARK_GRAY):   return "DARK_GRAY";
+
+        case X(ORANGE):      return "ORANGE";
+        case X(YELLOW):      return "YELLOW";
+        case X(BROWN):       return "BROWN";
+        case X(GOLD):        return "GOLD";
+
+        case X(CYAN):        return "CYAN";
+        case X(MAGENTA):     return "MAGENTA";
+        case X(PURPLE):      return "PURPLE";
+        case X(NAVY):        return "NAVY";
+        case X(TEAL):        return "TEAL";
+
+        default: return "UNKNOWN";
+    }
+#undef X
+}
+
 BMP *picasso_load_bmp(const char *filename)
 {
         BMP *image = malloc(sizeof(BMP));
@@ -118,3 +150,35 @@ void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c)
         pixels[i] = c;
     }
 }
+
+static inline uint32_t blend_pixel(uint32_t dst, uint32_t src) {
+    uint8_t sa = (src >> 24) & 0xFF;
+    if (sa == 255) return src;
+    if (sa == 0) return dst;
+
+    uint8_t sr = src & 0xFF;
+    uint8_t sg = (src >> 8) & 0xFF;
+    uint8_t sb = (src >> 16) & 0xFF;
+
+    uint8_t dr = dst & 0xFF;
+    uint8_t dg = (dst >> 8) & 0xFF;
+    uint8_t db = (dst >> 16) & 0xFF;
+
+    uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
+    uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
+    uint8_t b = (sb * sa + db * (255 - sa)) / 255;
+
+    return (0xFF << 24) | (b << 16) | (g << 8) | r;
+}
+
+void canopy_raster_bitmap_ex(void* src_buf,
+                             int src_w,  int src_h,
+                             int dest_x, int dest_y,
+                             int dest_w, int dest_h,
+                             bool scale,
+                             bool blend,
+                             bool bilinear)
+{
+
+}
+

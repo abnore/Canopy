@@ -5,16 +5,18 @@
 test_dir = test
 bin_dir  = bin
 src_dir  = src
+lib_dir  = lib
 logger_dir = logger
 
 cc        = clang
-cc_flags  = -framework Cocoa -I. -I$(logger_dir)
+cc_flags  = -framework Cocoa -I. -Ilib -I$(logger_dir)
 
-src_files = $(test_dir)/test.c
+src_files =  $(test_dir)/test.c
 src_files += $(src_dir)/canopy.m
 src_files += $(src_dir)/canopy_event.c
-src_files += picasso.c
-src_files += canopy_time.c
+src_files += $(src_dir)/picasso.c
+src_files += $(src_dir)/canopy_time.c
+src_files += $(src_dir)/common.c
 src_files += $(logger_dir)/logger.c
 
 output = $(bin_dir)/Test

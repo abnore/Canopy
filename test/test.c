@@ -1,5 +1,6 @@
 #include "canopy.h"
 #include "logger.h"
+#include "picasso.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,47 +10,62 @@
 
 int main(void)
 {
-    init_log(NULL, true);
+    if(init_log(NULL, true) == LOG_ERROR) WARN("log failed to initialize");
 
     canopy_window *win = canopy_create_window(WIDTH, HEIGHT, "Canopy Blend");
-
+    canopy_set_icon("assets/icon.svg");
     color rect1[200*200];
     color rect2[200*200];
     color rect3[200*200];
-    picasso_fill_canvas(rect1, 200, 200, CANOPY_RED);
-    picasso_fill_canvas(rect2, 200, 200, CANOPY_BLUE);
-    picasso_fill_canvas(rect3, 200, 200, CANOPY_GREEN);
+//    picasso_fill_canvas(rect1, 200, 200, CANOPY_RED);
+//    picasso_fill_canvas(rect2, 200, 200, CANOPY_BLUE);
+//    picasso_fill_canvas(rect3, 200, 200, CANOPY_GREEN);
 
     color rect4[200*200];
     color rect5[200*200];
     color rect6[200*200];
-    picasso_fill_canvas(rect4, 200, 200, CANOPY_PURPLE);
-    picasso_fill_canvas(rect5, 200, 200, CANOPY_NAVY);
-    picasso_fill_canvas(rect6, 200, 200, CANOPY_GOLD);
+//    picasso_fill_canvas(rect4, 200, 200, CANOPY_PURPLE);
+//    picasso_fill_canvas(rect5, 200, 200, CANOPY_NAVY);
+//    picasso_fill_canvas(rect6, 200, 200, CANOPY_GOLD);
 
     canopy_init_timer();
     canopy_set_fps(60);
+    DEBUG("color is %s", color_to_string(CANOPY_NAVY));
     canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
     while(!canopy_window_should_close(win))
     {
+
+        canopy_event event;
+        while (canopy_poll_event(&event)) {
+            switch (event.type) {
+                case CANOPY_EVENT_KEY:
+                    if (event.key.action == CANOPY_KEY_PRESS) {
+                        TRACE("key down %s code: %d  ", canopy_key_to_string(event.key.keycode),
+
+                                event.key.keycode);
+                    } else if (event.key.action == CANOPY_KEY_RELEASE) {
+                        //TRACE("key up %d", event.key.keycode);
+                    }
+                    break;
+                default:
+                    break;
+
+            }
+        }
+
         if (canopy_should_render_frame()) {
             canopy_clear_buffer(win);
-            canopy_raster_bitmap(win, rect1, 200,200, 0,0);
-
-            canopy_raster_bitmap_scaled_blended(win, rect2, 200,200, 100, 100, 150, 150);
-            canopy_raster_bitmap(win, rect3, 200,200, 200,200);
-            canopy_raster_bitmap(win, rect4, 200,200, 300,250);
-            canopy_raster_bitmap(win, rect5, 200,200, 400,300);
-            canopy_raster_bitmap(win, rect6, 200,200, 500,380);
 
             canopy_present_buffer(win);
         }
     }
+    shutdown_log();
+    canopy_free_window(win);
     return 0;
 }
 
 /*
-int main2(void)
+int main(void)
 {
     if(!init_log(NULL,true)) printf("Failed to setup logger\n");
     FATAL("Testing log");
@@ -74,7 +90,7 @@ int main2(void)
     int xpos = 100;
     int ypos = 100;
 
-    canopy_set_buffer_refresh_color(win, CANOPY_GREEN);
+    canopy_set_buffer_refresh_color(win, CANOPY_PURPLE);
     TRACE("first pixel = %08x\n", ((uint32_t*)canopy_get_framebuffer(win))[0]);
 
     canopy_init_timer();
@@ -151,9 +167,12 @@ int main2(void)
             canopy_clear_buffer(win);
             minepos--;
             //picasso_fill_canvas((color*)canopy_get_framebuffer(win), WIDTH, HEIGHT, CANOPY_BLUE);
-            canopy_raster_bitmap(win, bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height, 0, 0);
-            canopy_raster_bitmap(win, bmp_mine->image_data, bmp_mine->ih.width, bmp_mine->ih.height, minepos, 0);
-            canopy_raster_bitmap(win, bmp_tile->image_data, bmp_tile->ih.width, bmp_tile->ih.height, xpos, ypos);
+//            canopy_raster_bitmap(win, bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height, 0, 0);
+//            canopy_raster_bitmap(win, bmp_mine->image_data, bmp_mine->ih.width, bmp_mine->ih.height, minepos, 0);
+//            canopy_raster_bitmap_scaled(win, bmp_tile->image_data,
+//                                        bmp_tile->ih.width, bmp_tile->ih.height,
+//                                     xpos, ypos,
+//                                        bmp_tile->ih.width*2, bmp_tile->ih.height*2);
 
             canopy_present_buffer(win);
         }

@@ -2,10 +2,8 @@
 #define PICASSO_H
 /* Will support BMP, PPM, PNG and eventually JPG
  * */
-#include <stdio.h>  /* for FILE, fopen, fread, fclose*/
-#include <string.h> /* all the mem functions */
-#include <stdint.h>
-#include <stdlib.h>
+#include "common.h"
+/* -------------------- Color Section -------------------- */
 
 typedef struct {
     uint8_t r;
@@ -13,34 +11,46 @@ typedef struct {
     uint8_t b;
     uint8_t a;
 }color;
-// RBGA layout expected by Cocoa and NSBitmapImageRep
-// Primary Colors                     r     g     .b     a
-#define CANOPY_BLUE         ((color){0x00, 0x00, 0xFF, 0x50})
-#define CANOPY_GREEN        ((color){0x00, 0xFF, 0x00, 0xFF})
-#define CANOPY_RED          ((color){0xFF, 0x00, 0x00, 0xFF})
+
+// RGBA layout expected by Cocoa and NSBitmapImageRep
+// Primary Colors                      .r    .g    .b    .a
+#define BLUE         ((color){0x00, 0x00, 0xFF, 0x50})
+#define GREEN        ((color){0x00, 0xFF, 0x00, 0xFF})
+#define RED          ((color){0xFF, 0x00, 0x00, 0xFF})
 
 // Grayscale
-#define CANOPY_WHITE        ((color){0xFF, 0xFF, 0xFF, 0xFF})
-#define CANOPY_BLACK        ((color){0x00, 0x00, 0x00, 0xFF})
-#define CANOPY_GRAY         ((color){0x30, 0x30, 0x30, 0xFF})
-#define CANOPY_LIGHT_GRAY   ((color){0x80, 0x80, 0x80, 0xFF})
-#define CANOPY_DARK_GRAY    ((color){0x20, 0x20, 0x20, 0xFF})
+#define WHITE        ((color){0xFF, 0xFF, 0xFF, 0xFF})
+#define BLACK        ((color){0x00, 0x00, 0x00, 0xFF})
+#define GRAY         ((color){0x30, 0x30, 0x30, 0xFF})
+#define LIGHT_GRAY   ((color){0x80, 0x80, 0x80, 0xFF})
+#define DARK_GRAY    ((color){0x20, 0x20, 0x20, 0xFF})
 
 // Warm Tones
-#define CANOPY_ORANGE       ((color){0xFF, 0x80, 0x00, 0xFF})  // R: 255, G: 128, B: 0
-#define CANOPY_YELLOW       ((color){0xFF, 0xFF, 0x00, 0xFF})  // R: 255, G: 255, B: 0
-#define CANOPY_BROWN        ((color){0x80, 0x60, 0x20, 0xFF})  // R: 128, G: 96, B: 32
-#define CANOPY_GOLD         ((color){0xFF, 0xD7, 0x00, 0xFF})  // R: 255, G: 215, B: 0
+#define ORANGE       ((color){0xFF, 0x80, 0x00, 0xFF})  // R: 255, G: 128, B: 0
+#define YELLOW       ((color){0xFF, 0xFF, 0x00, 0xFF})  // R: 255, G: 255, B: 0
+#define BROWN        ((color){0x80, 0x60, 0x20, 0xFF})  // R: 128, G: 96, B: 32
+#define GOLD         ((color){0xFF, 0xD7, 0x00, 0xFF})  // R: 255, G: 215, B: 0
 
 // Cool Tones
-#define CANOPY_CYAN         ((color){0x00, 0xFF, 0xFF, 0xFF})  // R: 0, G: 255, B: 255
-#define CANOPY_MAGENTA      ((color){0xFF, 0x00, 0xFF, 0xFF})  // R: 255, G: 0, B: 255
-#define CANOPY_PURPLE       ((color){0x80, 0x00, 0x80, 0xFF})  // R: 128, G: 0, B: 128
-#define CANOPY_NAVY         ((color){0x00, 0x00, 0x80, 0xFF})  // R: 0, G: 0, B: 128
-#define CANOPY_TEAL         ((color){0x00, 0x80, 0x80, 0xFF})  // R: 0, G: 128, B: 128
+#define CYAN         ((color){0x00, 0xFF, 0xFF, 0xFF})  // R: 0, G: 255, B: 255
+#define MAGENTA      ((color){0xFF, 0x00, 0xFF, 0xFF})  // R: 255, G: 0, B: 255
+#define PURPLE       ((color){0x80, 0x00, 0x80, 0xFF})  // R: 128, G: 0, B: 128
+#define NAVY         ((color){0x00, 0x00, 0x80, 0xFF})  // R: 0, G: 0, B: 128
+#define TEAL         ((color){0x00, 0x80, 0x80, 0xFF})  // R: 0, G: 128, B: 128const char *color_to_string(color c);
 
+#define color_to_u32(c) (((uint32_t)(c).a << 24) | \
+                         ((uint32_t)(c).b << 16) | \
+                         ((uint32_t)(c).g << 8)  | \
+                         ((uint32_t)(c).r))
 
+#define u32_to_color(val) ((color){                      \
+    .a = (uint8_t)(((val) >> 24) & 0xFF),                \
+    .b = (uint8_t)(((val) >> 16) & 0xFF),                \
+    .g = (uint8_t)(((val) >> 8) & 0xFF),                 \
+    .r = (uint8_t)((val) & 0xFF)                         \
+})
 
+/*
 static inline uint32_t color_to_u32(color c) {
     return ((uint32_t)c.a << 24) |
            ((uint32_t)c.b << 16) |
@@ -56,6 +66,10 @@ static inline color u32_to_color(uint32_t val) {
         .r = val & 0xFF
     };
 }
+*/
+const char* color_to_string(color c);
+
+/* -------------------- Format Section -------------------- */
 
 // Define BMP file header structures
 #pragma pack(push,1) //https://www.ibm.com/docs/no/zos/2.4.0?topic=descriptions-pragma-pack
@@ -107,6 +121,22 @@ void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height);
 
 PPM *picasso_load_ppm(const char *filename);
 int picasso_save_to_ppm(PPM *image, const char *file_path);
+
+/* -------------------- Surface Section -------------------- */
+
+typedef struct {
+    int width;
+    int height;
+    int pitch;
+    uint32_t* pixels;
+} picasso_surface;
+
+picasso_surface* picasso_create_surface(int width, int height);
+void picasso_destroy_surface(picasso_surface* surface);
+void picasso_clear_surface(picasso_surface* surface, uint32_t color);
+void picasso_blit_surface(picasso_surface* dst, picasso_surface* src, int x, int y);
+void picasso_blit_bitmap(picasso_surface* dst, void* src_pixels, int src_w, int src_h, int x, int y, bool blend);
+void* picasso_get_pixels(picasso_surface* surface);
 
 void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c);
 

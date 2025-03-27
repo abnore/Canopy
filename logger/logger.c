@@ -1,10 +1,5 @@
 #include "logger.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h> // isatty()
 
 static FILE* log_output_stream = NULL;
 static bool log_colors_enabled = true;
@@ -25,7 +20,7 @@ static const char* level_colors[] = {
 
 static const char* color_reset = "\033[0m";
 
-int init_log(const char* filepath, bool enable_colors)
+log_type init_log(const char* filepath, bool enable_colors)
 {
     log_color_auto = true;
     log_output_stream = NULL;

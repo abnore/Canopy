@@ -1,4 +1,6 @@
-#pragma once
+#ifndef INPUT_H
+#define INPUT_H
+
 typedef enum keys {
         CANOPY_KEY_A = 0x00,
         CANOPY_KEY_B = 0x0B,
@@ -136,3 +138,5 @@ typedef enum {
         CANOPY_MOUSE_BUTTON_RIGHT,
         CANOPY_MAX_MOUSE_BUTTONS
 }mouse_buttons;
+
+#endif // INPUT_H
