@@ -53,18 +53,6 @@ Canopy is **under active development** and is evolving quickly.
 - [ ] Enable hardware acceleration (future)
 - [ ] Add sprite support and simple 2D rendering helpers
 
----
-
-## Disclaimer
-
-This is a side project, built for fun and learning.  
-It’s focused on **clarity**, **control**, and **simplicity**, not on portability or production features.
-
-If you’re interested in how to work directly with Cocoa and C — or building games and apps from the metal up — Canopy might be a good reference.
-
----
-
-
 
 ## 🧱 Features
 
@@ -74,3 +62,134 @@ If you’re interested in how to work directly with Cocoa and C — or building 
 - Input system (keyboard, mouse, scroll, modifiers)
 - Logging system with multiple levels
 - Minimal dependencies — just Cocoa
+
+
+
+
+---
+
+## Getting Started
+
+### 🔧 Requirements
+
+- macOS (tested on Monterey and later)
+- Clang (or Xcode CLI tools)
+- C99-compatible compiler
+
+### 🧪 Minimal Example
+
+```c
+/*******************************************************************************************
+*
+*   CANOPY [Example] - Custom Framebuffer Rendering
+*
+*   Description:
+*       Renders a solid-colored rectangle using a manually created framebuffer.
+*       Demonstrates how to allocate, fill, and display a custom framebuffer using Canopy.
+*
+*   Controls:
+*       [Close Window] - Exit application
+*
+********************************************************************************************/
+
+#include "canopy.h"
+
+#define WIDTH   400
+#define HEIGHT  400
+
+int main(void)
+{
+    // Initialization
+    //--------------------------------------------------------------------------------------
+    if (!init_log(NULL, true)) {
+        printf("Failed to initialize logger\n");
+        return 1;
+    }
+
+    canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Canopy - Custom Framebuffer");
+    canopy_set_buffer_refresh_color(win, CANOPY_DARK_GRAY);
+
+    canopy_init_timer();
+    canopy_set_fps(60);
+
+    framebuffer fb;
+    fb.width = 200;
+    fb.height = 200;
+    fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
+    fb.clear_color = CANOPY_BLUE;
+
+    size_t buffer_size = fb.pitch * fb.height;
+    fb.pixels = canopy_malloc(buffer_size);
+
+    if (!fb.pixels) {
+        FATAL("Failed to allocate framebuffer");
+        return 1;
+    }
+
+    // Fill the framebuffer with its clear color (once)
+    for (int i = 0; i < fb.width * fb.height; ++i) {
+        fb.pixels[i] = color_to_u32(fb.clear_color);
+    }
+    //--------------------------------------------------------------------------------------
+
+    // Main Game Loop
+    while (!canopy_window_should_close(win))
+    {
+        // Update
+        //----------------------------------------------------------------------------------
+        canopy_event event;
+        while (canopy_poll_event(&event)) {
+            // Handle events (mouse, keyboard, etc.)
+        }
+        //----------------------------------------------------------------------------------
+
+        // Draw
+        //----------------------------------------------------------------------------------
+        if (canopy_should_render_frame()) {
+            canopy_clear_buffer(win);                    // Clear main window framebuffer
+            canopy_swap_backbuffer(win, &fb);            // Copy custom framebuffer
+            canopy_present_buffer(win);                  // Present on screen
+        }
+        //----------------------------------------------------------------------------------
+    }
+
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
+    canopy_free(fb.pixels);
+    canopy_free_window(win);
+    shutdown_log();
+    //--------------------------------------------------------------------------------------
+
+    return 0;
+}
+```
+
+### 🛠️ Building
+
+Use `clang` to build:
+
+```bash
+clang main.c src/canopy.m src/canopy_event.c src/canopy_time.c \
+     src/common.c logger/logger.c \
+     -framework Cocoa -I. -Ilib -Ilogger -o bin/Test
+```
+Or integrate it into your own CMake or Makefile setup.
+
+
+## 📜 License & Disclaimer
+
+This library is **not intended for production use**.
+This is a side project, built for fun and learning.  
+It’s focused on **clarity**, **control**, and **simplicity**, not on portability or production features.
+
+If you’re interested in how to work directly with Cocoa and C — or building games and apps from the metal up — Canopy might be a good reference.
+It was created as a personal side project for learning and experimentation.
+
+- ✅ Designed to be **dependency-free**
+- 🎓 Built for **educational purposes**
+- 🧠 Meant to help explore **event-driven architecture** and **graphics**
+- 🚀 Aims to eventually support **hardware acceleration**, while keeping the CPU path simple and accessible
+
+Use it, break it, learn from it.  
+Feel free to fork and experiment — just don’t expect it to replace SDL, Raylib or GLFW (yet).
+
