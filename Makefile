@@ -9,7 +9,7 @@ lib_dir  = lib
 logger_dir = logger
 
 cc        = clang
-cc_flags  = -framework Cocoa -I. -Ilib -I$(logger_dir)
+cc_flags  = -framework Cocoa -I. -I$(lib_dir) -I$(logger_dir)
 
 src_files =  $(test_dir)/test.c
 src_files += $(src_dir)/canopy.m

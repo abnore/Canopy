@@ -542,7 +542,7 @@ void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
                &backbuffer->pixels[y * backbuffer->width],
                copy_width * sizeof(uint32_t));
     }
-    TRACE("Swapped backbuffer (%dx%d)", copy_width, copy_height);
+    //TRACE("Swapped backbuffer (%dx%d)", copy_width, copy_height);
 }
 
 /* Pump messages so that the window is shown to be responsive
