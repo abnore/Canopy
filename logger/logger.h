@@ -161,7 +161,7 @@ void log_output_ext(log_level level, const char* file, int line, const char* fun
 #endif
 
 //----------------------------------------
-// Optional assertion macro
+// Optional assertion macros
 //----------------------------------------
 
 /**
@@ -169,17 +169,35 @@ void log_output_ext(log_level level, const char* file, int line, const char* fun
  *
  * This function is called by the ASSERT macro.
  *
- * @param expression The failed expression as a string
- * @param message Custom error message
- * @param file Source file
- * @param line Line number
+ * @param expression The failed expression as a string.
+ * @param message    Custom error message.
+ * @param file       Source file.
+ * @param line       Line number.
  */
 void report_assertion_failure(const char* expression, const char* message, const char* file, int line);
 
 /**
- * @brief Custom assert macro that logs on failure instead of aborting.
+ * @brief Custom runtime assertion that logs on failure instead of aborting.
+ *
+ * Use this to check conditions during runtime without crashing the program.
+ *
+ * @param expr The expression to test.
+ * @param msg  The message to log if the assertion fails.
  */
 #define ASSERT(expr, msg) \
     if (!(expr)) { report_assertion_failure(#expr, msg, __FILE__, __LINE__); }
+
+/**
+ * @brief Compile-time assertion for validating constants, struct layouts, etc.
+ *
+ * This macro wraps `_Static_assert`, which performs the check at compile time.
+ *
+ * Use it to catch errors early, like mismatched struct sizes or invalid enums.
+ *
+ * @param cond The condition to assert (must be evaluable at compile time).
+ * @param msg  The message to display if the assertion fails.
+ */
+#define BUILD_ASSERT(cond, msg) _Static_assert(cond, msg)
+
 
 #endif // LOGGER_H

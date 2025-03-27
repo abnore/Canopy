@@ -140,15 +140,20 @@ picasso_sprite_sheet* picasso_create_sprite_sheet( uint32_t* pixels, int sheet_w
 /* -------------------- Backbuffer Section -------------------- */
 
 typedef struct {
+    uint32_t* pixels;
     int width;
     int height;
     int pitch;
-    uint32_t* pixels;
+    union {
+        uint32_t reserved;
+        color placeholder_color;
+    };
+
 } picasso_backbuffer;
 
 picasso_backbuffer* picasso_create_backbuffer(int width, int height);
 void picasso_destroy_backbuffer(picasso_backbuffer* bf);
-void picasso_clear_backbuffer(picasso_backbuffer* bf, uint32_t color);
+void picasso_clear_backbuffer(picasso_backbuffer* bf);
 void picasso_blit_backbuffer(picasso_backbuffer* dst, picasso_backbuffer* src, int x, int y);
 void picasso_blit_bitmap(picasso_backbuffer* dst, void* src_pixels, int src_w, int src_h, int x, int y, bool blend);
 void* picasso_backbuffer_pixels(picasso_backbuffer* bf);

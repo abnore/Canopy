@@ -27,6 +27,8 @@ extern "C" { // Prevents name mangling of functions
 #define CANOPY_PURPLE       PURPLE
 #define CANOPY_NAVY         NAVY
 #define CANOPY_TEAL         TEAL
+
+#define CANOPY_BACKGROUND_COLOR CANOPY_DARK_GRAY
 /// @}
 
 /// @brief Bitmask flags for creating window styles.
@@ -190,9 +192,9 @@ int canopy_get_mouse_button(canopy_window* window, int button);
 void canopy_get_cursor_pos(canopy_window* window, double* pos_x, double* pos_y);
 /// @}
 
+
 #ifdef __cplusplus
 }
 #endif
-
 #endif // CANOPY_H
 

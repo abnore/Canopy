@@ -79,8 +79,8 @@ struct canopy_window {
     self = [super initWithFrame:frame];
     if (self) {
         window = win;
-        window->fb.clear_color = CANOPY_DARK_GRAY;
-        INFO("Default background color set: %s", color_to_string(CANOPY_DARK_GRAY));
+        window->fb.clear_color = CANOPY_BACKGROUND_COLOR;
+        INFO("Default background color set: %s", color_to_string(CANOPY_BACKGROUND_COLOR));
     }
     return self;
 }
@@ -463,21 +463,33 @@ bool canopy_init_framebuffer(canopy_window *win)
 
 void canopy_clear_buffer(canopy_window* win)
 {
+    if (!win) {
+        ERROR("Null window passed to canopy_clear_buffer");
+        return;
+    }
 
-    if(win->fb.pixels == NULL)
-    {
+    if (win->fb.pixels == NULL) {
         WARN("Framebuffer was uninitialized, reinitializing...");
         canopy_init_framebuffer(win);
+
+        // Still null after init?
+        if (win->fb.pixels == NULL) {
+            ERROR("Failed to initialize framebuffer");
+            return;
+        }
     }
 
-    // Get the render color (background color) from the view
+    // Get the background clear color from the view
     color c = [win->view getRenderColor];
+    uint32_t clear_value = color_to_u32(c);
 
-    // Clear the framebuffer by filling it with the render color
-    for (int i = 0; i < win->fb.width * win->fb.height; ++i) {
-        win->fb.pixels[i] = color_to_u32(c);
+    size_t total_pixels = win->fb.width * win->fb.height;
+    for (size_t i = 0; i < total_pixels; ++i) {
+        win->fb.pixels[i] = clear_value;
     }
+
 }
+
 
 void canopy_present_buffer(canopy_window *window)
 {
@@ -522,6 +534,27 @@ void canopy_set_buffer_refresh_color(canopy_window *w, color c)
     [w->view setRenderColor:c];
 }
 
+static inline uint32_t blend_pixel(uint32_t dst, uint32_t src)
+{
+    uint8_t sa = (src >> 24) & 0xFF;
+    if (sa == 255) return src;
+    if (sa == 0) return dst;
+
+    uint8_t sr = src & 0xFF;
+    uint8_t sg = (src >> 8) & 0xFF;
+    uint8_t sb = (src >> 16) & 0xFF;
+
+    uint8_t dr = dst & 0xFF;
+    uint8_t dg = (dst >> 8) & 0xFF;
+    uint8_t db = (dst >> 16) & 0xFF;
+
+    uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
+    uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
+    uint8_t b = (sb * sa + db * (255 - sa)) / 255;
+
+    return (0xFF << 24) | (b << 16) | (g << 8) | r;
+}
+
 void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
 {
     if (!backbuffer || !backbuffer->pixels) {
@@ -538,12 +571,16 @@ void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
     int copy_height = (backbuffer->height < w->fb.height) ? backbuffer->height : w->fb.height;
 
     for (int y = 0; y < copy_height; ++y) {
-        memcpy(&w->fb.pixels[y * w->fb.width],
-               &backbuffer->pixels[y * backbuffer->width],
-               copy_width * sizeof(uint32_t));
+        for (int x = 0; x < copy_width; ++x) {
+            int dst_index = y * w->fb.width + x;
+            int src_index = y * backbuffer->width + x;
+
+            w->fb.pixels[dst_index] = blend_pixel(w->fb.pixels[dst_index], backbuffer->pixels[src_index]);
+        }
     }
-    //TRACE("Swapped backbuffer (%dx%d)", copy_width, copy_height);
+
 }
+
 
 /* Pump messages so that the window is shown to be responsive
  * Also needed for event handling

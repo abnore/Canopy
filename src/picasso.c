@@ -213,7 +213,9 @@ void picasso_fill_canvas(color *pixels, size_t width, size_t height, color c)
         pixels[i] = c;
     }
 }
-void picasso_destroy_backbuffer(picasso_backbuffer* bf) {
+
+void picasso_destroy_backbuffer(picasso_backbuffer* bf)
+{
     if (!bf) return;
     if (bf->pixels) {
         free(bf->pixels);
@@ -222,7 +224,8 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf) {
     free(bf);
 }
 
-void picasso_fill_backbuffer(picasso_backbuffer* bf, color c) {
+void picasso_fill_backbuffer(picasso_backbuffer* bf, color c)
+{
     if (!bf || !bf->pixels) return;
     uint32_t color_val = color_to_u32(c);
     int count = bf->width * bf->height;
@@ -230,7 +233,8 @@ void picasso_fill_backbuffer(picasso_backbuffer* bf, color c) {
         bf->pixels[i] = color_val;
     }
 }
-picasso_backbuffer* picasso_create_backbuffer(int width, int height) {
+picasso_backbuffer* picasso_create_backbuffer(int width, int height)
+{
     if (width <= 0 || height <= 0) {
         return NULL;
     }
@@ -251,7 +255,8 @@ picasso_backbuffer* picasso_create_backbuffer(int width, int height) {
     return bf;
 }
 
-static inline uint32_t blend_pixel(uint32_t dst, uint32_t src) {
+static inline uint32_t blend_pixel(uint32_t dst, uint32_t src)
+{
     uint8_t sa = (src >> 24) & 0xFF;
     if (sa == 255) return src;
     if (sa == 0) return dst;
@@ -301,8 +306,22 @@ void picasso_blit_bitmap(picasso_backbuffer* dst,
     }
 }
 
-void* picasso_backbuffer_pixels(picasso_backbuffer* bf) {
+void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
+{
     if (!bf) return NULL;
     return (void*)bf->pixels;
+}
+
+void picasso_clear_backbuffer(picasso_backbuffer* bf)
+{
+    if (!bf || !bf->pixels) {
+        WARN("Attempted to clear NULL backbuffer");
+        return;
+    }
+
+    size_t total_pixels = bf->width * bf->height;
+    for (size_t i = 0; i < total_pixels; ++i) {
+        bf->pixels[i] = 0x00000000;
+    }
 }
 

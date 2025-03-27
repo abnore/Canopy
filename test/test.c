@@ -6,6 +6,7 @@
 #define WIDTH 800
 #define HEIGHT 600
 
+#if 0
 int main(void)
 {
     if (init_log(NULL, true) == LOG_ERROR)
@@ -37,7 +38,10 @@ int main(void)
 
     canopy_init_timer();
     canopy_set_fps(60);
+
+    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
     canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
+    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
 
     while (!canopy_window_should_close(win))
     {
@@ -50,24 +54,16 @@ int main(void)
 
         if (canopy_should_render_frame()) {
             canopy_clear_buffer(win);
-
+            TRACE("After clear, first pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
             // Blit the colored rectangles to the backbuffer
-            picasso_blit_bitmap(bf, rect1, 200, 200, 100, 100, true);
-            picasso_blit_bitmap(bf, rect2, 200, 200, 150, 150, true);
-            picasso_blit_bitmap(bf, rect3, 200, 200, 200, 200, true);
-            picasso_blit_bitmap(bf, rect4, 200, 200, 300, 100, true);
-            picasso_blit_bitmap(bf, rect5, 200, 200, 350, 150, true);
-            picasso_blit_bitmap(bf, rect6, 200, 200, 400, 200, true);
+//            picasso_blit_bitmap(bf, rect1, 200, 200, 100, 100, true);
+//            picasso_blit_bitmap(bf, rect2, 200, 200, 150, 150, true);
+//            picasso_blit_bitmap(bf, rect3, 200, 200, 200, 200, true);
+//            picasso_blit_bitmap(bf, rect4, 200, 200, 300, 100, true);
+//            picasso_blit_bitmap(bf, rect5, 200, 200, 350, 150, true);
+//            picasso_blit_bitmap(bf, rect6, 200, 200, 400, 200, true);
 
-            // Extract the pixel buffer and pass to Canopy
-            framebuffer temp_fb = {
-                .pixels = picasso_backbuffer_pixels(bf),
-                .width = bf->width,
-                .height = bf->height,
-                .pitch = bf->pitch
-            };
-
-            canopy_swap_backbuffer(win, &temp_fb);
+            //canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }
     }
@@ -78,11 +74,11 @@ int main(void)
     return 0;
 }
 
-/*
+#else
 int main(void)
 {
-    if(!init_log(NULL,true)) printf("Failed to setup logger\n");
-    FATAL("Testing log");
+    if (!init_log(NULL, true)) { printf("Failed to setup logger\n"); }
+
     FATAL("Testing log");
     ERROR("Testing log");
     WARN("Testing log");
@@ -92,113 +88,108 @@ int main(void)
 
     canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Hello Canopy");
     canopy_set_icon("assets/icon.png");
-    BMP *bmp_example = picasso_load_bmp("sample.bmp");
-    BMP *bmp_mine = picasso_load_bmp("background.bmp");
+
+    BMP *bmp_example = picasso_load_bmp("assets/sample.bmp");
+    BMP *bmp_mine = picasso_load_bmp("assets/background.bmp");
     BMP *bmp_tile = picasso_load_bmp("assets/tiles.bmp");
 
-    if(bmp_example) picasso_flip_buffer_vertical(bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height);
-    if(bmp_mine) picasso_flip_buffer_vertical(bmp_mine->image_data, bmp_mine->ih.width, bmp_mine->ih.height);
-    if(bmp_tile) picasso_flip_buffer_vertical(bmp_tile->image_data, bmp_tile->ih.width, bmp_tile->ih.height);
+    if (bmp_example) picasso_flip_buffer_vertical(bmp_example->pixels, bmp_example->ih.width, bmp_example->ih.height);
+    if (bmp_mine) picasso_flip_buffer_vertical(bmp_mine->pixels, bmp_mine->ih.width, bmp_mine->ih.height);
+    if (bmp_tile) picasso_flip_buffer_vertical(bmp_tile->pixels, bmp_tile->ih.width, bmp_tile->ih.height);
 
-    int minepos = 700;
+    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+
     int xpos = 100;
     int ypos = 100;
-
-    canopy_set_buffer_refresh_color(win, CANOPY_PURPLE);
-    TRACE("first pixel = %08x\n", ((uint32_t*)canopy_get_framebuffer(win))[0]);
-
-    canopy_init_timer();
-    canopy_set_fps(60);
-
     int vel_x = 1;
     int vel_y = 1;
 
     int sprite_width = bmp_tile->ih.width;
     int sprite_height = bmp_tile->ih.height;
 
+    canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
+    canopy_set_buffer_refresh_color(win, CANOPY_PURPLE);
+    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
+
+    canopy_init_timer();
+    canopy_set_fps(60);
+
     while (!canopy_window_should_close(win)) {
 
         canopy_event event;
         while (canopy_poll_event(&event)) {
-            switch (event.type) {
-                case CANOPY_EVENT_MOUSE:
-                    switch (event.mouse.action) {
-                        case CANOPY_MOUSE_PRESS:
-                            TRACE("mouse press (button %d) at (%d, %d)",
-                                    event.mouse.button, event.mouse.x, event.mouse.y);
-                            break;
-                        case CANOPY_MOUSE_RELEASE:
-                            TRACE("mouse release (button %d) at (%d, %d)",
-                                    event.mouse.button, event.mouse.x, event.mouse.y);
-                            break;
-                        case CANOPY_MOUSE_MOVE:
-                            // TRACE("mouse move");
-                            break;
-                        case CANOPY_MOUSE_DRAG:
-                            TRACE("mouse drag at (%d, %d)",
-                                    event.mouse.x, event.mouse.y);
-                            break;
-                        case CANOPY_MOUSE_SCROLL:
-                            TRACE("mouse scroll (x: %.2f, y: %.2f)",
-                                    event.mouse.scroll_x, event.mouse.scroll_y);
-                            break;
-                        case CANOPY_MOUSE_ENTER:
-                            TRACE("mouse entered window");
-                            break;
-                        case CANOPY_MOUSE_EXIT:
-                            TRACE("mouse exited window");
-                            break;
-                        default:
-                            break;
-                    }
-                    break;
-
-                case CANOPY_EVENT_KEY:
-                    if (event.key.action == CANOPY_KEY_PRESS) {
-                        TRACE("key down %s code: %d  ", canopy_key_to_string(event.key.keycode),
-
-                                                        event.key.keycode);
-                    } else if (event.key.action == CANOPY_KEY_RELEASE) {
-                        //TRACE("key up %d", event.key.keycode);
-                    }
-                    break;
-
-                default:
-                    break;
+            if (event.type == CANOPY_EVENT_MOUSE) {
+                switch (event.mouse.action) {
+                    case CANOPY_MOUSE_PRESS:
+                        TRACE("Mouse press (button %d) at (%d, %d)", event.mouse.button, event.mouse.x, event.mouse.y);
+                        break;
+                    case CANOPY_MOUSE_RELEASE:
+                        TRACE("Mouse release (button %d) at (%d, %d)", event.mouse.button, event.mouse.x, event.mouse.y);
+                        break;
+                    case CANOPY_MOUSE_DRAG:
+                        TRACE("Mouse drag at (%d, %d)", event.mouse.x, event.mouse.y);
+                        break;
+                    case CANOPY_MOUSE_SCROLL:
+                        TRACE("Mouse scroll (x: %.2f, y: %.2f)", event.mouse.scroll_x, event.mouse.scroll_y);
+                        break;
+                    case CANOPY_MOUSE_ENTER:
+                        TRACE("Mouse entered window");
+                        break;
+                    case CANOPY_MOUSE_EXIT:
+                        TRACE("Mouse exited window");
+                        break;
+                    default: break;
+                }
+            } else if (event.type == CANOPY_EVENT_KEY && event.key.action == CANOPY_KEY_PRESS) {
+                TRACE("Key down %s (code: %d)", canopy_key_to_string(event.key.keycode), event.key.keycode);
             }
         }
+
         if (canopy_should_render_frame()) {
-
-            if (xpos <= 0 || xpos + sprite_width >= WIDTH) {
-                vel_x = -vel_x;
-            }
-            if (ypos <= 0 || ypos + sprite_height >= HEIGHT) {
-                vel_y = -vel_y;
-            }
-
+            if (xpos <= 0 || xpos + sprite_width >= WIDTH) vel_x = -vel_x;
+            if (ypos <= 0 || ypos + sprite_height >= HEIGHT) vel_y = -vel_y;
             xpos += vel_x;
             ypos += vel_y;
-            canopy_clear_buffer(win);
-            minepos--;
-            //picasso_fill_canvas((color*)canopy_get_framebuffer(win), WIDTH, HEIGHT, CANOPY_BLUE);
-//            canopy_raster_bitmap(win, bmp_example->image_data, bmp_example->ih.width, bmp_example->ih.height, 0, 0);
-//            canopy_raster_bitmap(win, bmp_mine->image_data, bmp_mine->ih.width, bmp_mine->ih.height, minepos, 0);
-//            canopy_raster_bitmap_scaled(win, bmp_tile->image_data,
-//                                        bmp_tile->ih.width, bmp_tile->ih.height,
-//                                     xpos, ypos,
-//                                        bmp_tile->ih.width*2, bmp_tile->ih.height*2);
 
+            canopy_clear_buffer(win);
+            picasso_clear_backbuffer(bf);
+            picasso_blit_bitmap(bf, bmp_tile->pixels,
+                    bmp_tile->ih.width, bmp_tile->ih.height,
+                    xpos, ypos, true);
+
+            picasso_blit_bitmap(bf, bmp_example->pixels,
+                    bmp_example->ih.width, bmp_example->ih.height,
+                    0, 0, true);
+
+            picasso_blit_bitmap(bf, bmp_mine->pixels,
+                    bmp_mine->ih.width, bmp_mine->ih.height,
+                    0, 0, true);
+
+
+            canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }
     }
 
     shutdown_log();
     canopy_free_window(win);
-    free(bmp_mine->image_data);
-    free(bmp_mine);
-    free(bmp_example->image_data);
-    free(bmp_example);
 
+    if (bmp_example) {
+        free(bmp_example->pixels);
+        free(bmp_example);
+    }
+
+    if (bmp_mine) {
+        free(bmp_mine->pixels);
+        free(bmp_mine);
+    }
+
+    if (bmp_tile) {
+        free(bmp_tile->pixels);
+        free(bmp_tile);
+    }
+
+    picasso_destroy_backbuffer(bf);
     return 0;
 }
-*/
+#endif
