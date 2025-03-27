@@ -255,41 +255,22 @@ picasso_backbuffer* picasso_create_backbuffer(int width, int height)
     return bf;
 }
 
-static inline uint32_t blend_pixel(uint32_t dst, uint32_t src)
-{
-    uint8_t sa = (src >> 24) & 0xFF;
-    if (sa == 255) return src;
-    if (sa == 0) return dst;
-
-    uint8_t sr = src & 0xFF;
-    uint8_t sg = (src >> 8) & 0xFF;
-    uint8_t sb = (src >> 16) & 0xFF;
-
-    uint8_t dr = dst & 0xFF;
-    uint8_t dg = (dst >> 8) & 0xFF;
-    uint8_t db = (dst >> 16) & 0xFF;
-
-    uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
-    uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
-    uint8_t b = (sb * sa + db * (255 - sa)) / 255;
-
-    return (0xFF << 24) | (b << 16) | (g << 8) | r;
-}
 void picasso_blit_bitmap(picasso_backbuffer* dst,
                          void* src_pixels, int src_w, int src_h,
-                         int x, int y,
-                         bool blend)
+                         int x, int y)
 {
     if (!dst || !src_pixels || !dst->pixels) return;
 
     int dst_w = dst->width;
     int dst_h = dst->height;
 
-    for (int row = 0; row < src_h; ++row) {
+    for (int row = 0; row < src_h; ++row)
+    {
         int dst_y = y + row;
         if (dst_y < 0 || dst_y >= dst_h) continue;
 
-        for (int col = 0; col < src_w; ++col) {
+        for (int col = 0; col < src_w; ++col)
+        {
             int dst_x = x + col;
             if (dst_x < 0 || dst_x >= dst_w) continue;
 
@@ -297,11 +278,7 @@ void picasso_blit_bitmap(picasso_backbuffer* dst,
             uint32_t* dst_pixel = &dst->pixels[dst_y * dst->width + dst_x];
             uint32_t  src_pixel = src[row * src_w + col];
 
-            if (blend) {
-                *dst_pixel = blend_pixel(*dst_pixel, src_pixel);  // You already have this inline
-            } else {
-                *dst_pixel = src_pixel;
-            }
+            *dst_pixel = src_pixel;
         }
     }
 }

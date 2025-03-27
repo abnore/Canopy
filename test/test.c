@@ -30,8 +30,8 @@ int main(void)
 
     // Fill the rectangles with colors
     picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect1 }, CANOPY_RED);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect2 }, CANOPY_BLUE);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect3 }, CANOPY_GREEN);
+    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect2 }, (color){0, 0, 200, 128});
+    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect3 }, (color){0, 200, 0, 170});
     picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect4 }, CANOPY_PURPLE);
     picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect5 }, CANOPY_NAVY);
     picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect6 }, CANOPY_GOLD);
@@ -39,9 +39,7 @@ int main(void)
     canopy_init_timer();
     canopy_set_fps(60);
 
-    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
-    canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
-    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
+    canopy_set_buffer_refresh_color(win, CANOPY_LIGHT_GRAY);
 
     while (!canopy_window_should_close(win))
     {
@@ -54,16 +52,16 @@ int main(void)
 
         if (canopy_should_render_frame()) {
             canopy_clear_buffer(win);
-            TRACE("After clear, first pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
+            picasso_clear_backbuffer(bf);
             // Blit the colored rectangles to the backbuffer
-//            picasso_blit_bitmap(bf, rect1, 200, 200, 100, 100, true);
-//            picasso_blit_bitmap(bf, rect2, 200, 200, 150, 150, true);
-//            picasso_blit_bitmap(bf, rect3, 200, 200, 200, 200, true);
-//            picasso_blit_bitmap(bf, rect4, 200, 200, 300, 100, true);
-//            picasso_blit_bitmap(bf, rect5, 200, 200, 350, 150, true);
-//            picasso_blit_bitmap(bf, rect6, 200, 200, 400, 200, true);
+            picasso_blit_bitmap(bf, rect1, 200, 200, 100, 100 );
+            picasso_blit_bitmap(bf, rect2, 200, 200, 150, 150 );
+            picasso_blit_bitmap(bf, rect3, 200, 200, 200, 200 );
+            picasso_blit_bitmap(bf, rect4, 200, 200, 300, 100 );
+            picasso_blit_bitmap(bf, rect5, 200, 200, 350, 150 );
+            picasso_blit_bitmap(bf, rect6, 200, 200, 400, 200 );
 
-            //canopy_swap_backbuffer(win, (framebuffer*)bf);
+            canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }
     }
@@ -108,7 +106,6 @@ int main(void)
     int sprite_height = bmp_tile->ih.height;
 
     canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
-    canopy_set_buffer_refresh_color(win, CANOPY_PURPLE);
     TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
 
     canopy_init_timer();
@@ -145,25 +142,20 @@ int main(void)
             }
         }
 
-        if (canopy_should_render_frame()) {
+        if (canopy_should_render_frame())
+        {
+            canopy_clear_buffer(win);
+
             if (xpos <= 0 || xpos + sprite_width >= WIDTH) vel_x = -vel_x;
             if (ypos <= 0 || ypos + sprite_height >= HEIGHT) vel_y = -vel_y;
             xpos += vel_x;
             ypos += vel_y;
 
-            canopy_clear_buffer(win);
             picasso_clear_backbuffer(bf);
-            picasso_blit_bitmap(bf, bmp_tile->pixels,
-                    bmp_tile->ih.width, bmp_tile->ih.height,
-                    xpos, ypos, true);
 
-            picasso_blit_bitmap(bf, bmp_example->pixels,
-                    bmp_example->ih.width, bmp_example->ih.height,
-                    0, 0, true);
-
-            picasso_blit_bitmap(bf, bmp_mine->pixels,
-                    bmp_mine->ih.width, bmp_mine->ih.height,
-                    0, 0, true);
+            picasso_blit_bitmap(bf, bmp_example->pixels, bmp_example->ih.width, bmp_example->ih.height, 0, 0);
+            picasso_blit_bitmap(bf, bmp_mine->pixels, bmp_mine->ih.width, bmp_mine->ih.height, 0, 0);
+            picasso_blit_bitmap(bf, bmp_tile->pixels, bmp_tile->ih.width, bmp_tile->ih.height, xpos, ypos);
 
 
             canopy_swap_backbuffer(win, (framebuffer*)bf);

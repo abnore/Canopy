@@ -47,9 +47,9 @@ const char* canopy_key_to_string(keys key)
         case CANOPY_KEY_X: return "x";
         case CANOPY_KEY_Y: return "y";
         case CANOPY_KEY_Z: return "z";
-//        case CANOPY_KEY_AE: return "æ";
-//        case CANOPY_KEY_OE: return "ø";
-//        case CANOPY_KEY_AA: return "å";
+        case CANOPY_KEY_AE: return "æ";
+        case CANOPY_KEY_OE: return "ø";
+        case CANOPY_KEY_AA: return "å";
 
         // Number row
         case CANOPY_KEY_0: return "0";
@@ -131,16 +131,16 @@ const char* canopy_key_to_string(keys key)
         case CANOPY_KEY_FN: return "fn";
 
         // Symbols
-        case CANOPY_KEY_APOSTROPHE: return "'";
+//        case CANOPY_KEY_APOSTROPHE: return "'"; // Conflicting with æ
         case CANOPY_KEY_BACKSLASH: return "\\";
         case CANOPY_KEY_COMMA: return ",";
         case CANOPY_KEY_EQUAL: return "=";
         case CANOPY_KEY_GRAVE: return "`";
-        case CANOPY_KEY_LBRACKET: return "[";
+//        case CANOPY_KEY_LBRACKET: return "["; // Conflicting with å
         case CANOPY_KEY_MINUS: return "-";
         case CANOPY_KEY_PERIOD: return ".";
         case CANOPY_KEY_RBRACKET: return "]";
-        case CANOPY_KEY_SEMICOLON: return ";";
+//        case CANOPY_KEY_SEMICOLON: return ";"; // Conflicing with ø
         case CANOPY_KEY_SLASH: return "/";
 
         // Numpad operations
