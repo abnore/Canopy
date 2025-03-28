@@ -16,25 +16,22 @@ It is written in C with a native Objective-C backend and uses Cocoa directly —
 This project is **educational and experimental** in nature. It’s not intended for production or general distribution.  
 The goal is to better understand macOS internals, event loops, and rendering pipelines by building something from scratch.
 
+>[!WARNING]
+>This project is **under active development** and is evolving quickly.
+>Features, function names, and structures may change at any time. Breaking changes are likely.
 ---
 
 ## Purpose & Design
 
-- 🎓 Built for learning and exploration
-- 🧱 Provides a simple window and event loop system
-- 🧵 Separates the window/event layer from the rendering layer
-- 🖼️ Uses a CPU-driven framebuffer model (with plans for optional GPU acceleration)
-- 🔍 Keeps full control of the stack — no SDL, no GLFW, no external runtime deps
+-  Built for learning and exploration
+-  Provides a simple window and event loop system
+-  Separates the window/event layer from the rendering layer
+-  Uses a CPU-driven framebuffer model (with plans for optional GPU acceleration)
+-  Keeps full control of the stack — no SDL, no GLFW, no external runtime deps
 
----
-
-## Project Status
-
-Canopy is **under active development** and is evolving quickly.
-
-- The API is **not stable**.
-- Things may break between versions.
-- It is intentionally minimal and will only support macOS.
+>[!NOTE]
+>Canopy is intentionally minimal and only targets macOS.
+>It does not aim for cross-platform support — it’s a learning tool and experiment in Cocoa + C interop.
 
 ---
 
@@ -49,7 +46,7 @@ Canopy is **under active development** and is evolving quickly.
 - [ ] Add sprite support and simple 2D rendering helpers
 
 
-## 🧱 Features
+##  Features
 
 - Pure C API with Objective-C backend (Cocoa)
 - NSWindow + NSView handling under the hood
@@ -71,7 +68,7 @@ Canopy is **under active development** and is evolving quickly.
 - Clang (or Xcode CLI tools)
 - C99-compatible compiler
 
-### 🧪 Minimal Example
+###  Minimal Example
 ## Example Output
 
 > (Examples and demos to come)
@@ -179,7 +176,7 @@ clang main.c src/canopy.m src/canopy_event.c src/canopy_time.c \
 Or integrate it into your own CMake or Makefile setup.
 
 
-## 📜 License & Disclaimer
+## License & Disclaimer
 
 This library is **not intended for production use**.
 This is a side project, built for fun and learning.  
@@ -188,10 +185,10 @@ It’s focused on **clarity**, **control**, and **simplicity**, not on portabili
 If you’re interested in how to work directly with Cocoa and C — or building games and apps from the metal up — Canopy might be a good reference.
 It was created as a personal side project for learning and experimentation.
 
-- ✅ Designed to be **dependency-free**
-- 🎓 Built for **educational purposes**
-- 🧠 Meant to help explore **event-driven architecture** and **graphics**
-- 🚀 Aims to eventually support **hardware acceleration**, while keeping the CPU path simple and accessible
+-  Designed to be **dependency-free**
+-  Built for **educational purposes**
+-  Meant to help explore **event-driven architecture** and **graphics**
+-  Aims to eventually support **hardware acceleration**, while keeping the CPU path simple and accessible
 
 Use it, break it, learn from it.  
 Feel free to fork and experiment — just don’t expect it to replace SDL, Raylib or GLFW (yet).
