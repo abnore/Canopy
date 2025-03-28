@@ -105,8 +105,7 @@ int main(void)
     // Initialization
     //--------------------------------------------------------------------------------------
     if (!init_log(NULL, true)) {
-        printf("Failed to initialize logger\n");
-        return 1;
+        WARN("Failed to initialize logger");
     }
 
     canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Canopy - Custom Framebuffer");
