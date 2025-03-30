@@ -14,6 +14,8 @@
 ********************************************************************************************/
 
 #include "canopy.h"
+#include "picasso.h"
+
 
 #define WIDTH   800
 #define HEIGHT  600
@@ -34,7 +36,9 @@ int main(void)
     DEBUG("Testing log");
     TRACE("Testing log");
 
-    canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Canopy + Picasso - Bouncing Bitmap");
+    canopy_window* win = canopy_create_window("Canopy + Picasso - Bouncing Bitmap",
+                                                WIDTH, HEIGHT,                                                CANOPY_WINDOW_STYLE_TITLED |
+                                                CANOPY_WINDOW_STYLE_CLOSABLE);
     canopy_set_icon("assets/icon.png");
 
     BMP* bmp_example = picasso_load_bmp("assets/sample.bmp");
@@ -53,9 +57,6 @@ int main(void)
 
     int sprite_width  = bmp_mine->ih.width;
     int sprite_height = bmp_mine->ih.height;
-
-    canopy_set_buffer_refresh_color(win, CANOPY_NAVY);
-    TRACE("First pixel = %08x", ((uint32_t*)canopy_get_framebuffer(win)->pixels)[0]);
 
     canopy_init_timer();
     canopy_set_fps(60);
@@ -101,7 +102,6 @@ int main(void)
         //----------------------------------------------------------------------------------
         if (canopy_should_render_frame())
         {
-            canopy_clear_buffer(win);
             picasso_clear_backbuffer(bf);
 
             // Bounce logic

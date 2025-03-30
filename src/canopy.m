@@ -9,37 +9,45 @@ struct canopy_window {
     id view;
     id delegate;
     framebuffer fb;
+
     bool should_close;
+    uint32_t pixel_ratio; // support of high spi/retina screen
 };
 
 //----------------------------------------
 // Window Delegate
 //----------------------------------------
-@interface CanopyDelegate : NSObject <NSWindowDelegate> {
+@interface canopy_delegate : NSObject <NSWindowDelegate>
+{
     canopy_window* window;
 }
-- (instancetype)initWithCanopyWindow:(canopy_window*)initWindow;
+
+- (instancetype)init_with_canopy_window:(canopy_window*)init_window;
+
 @end
+//----------------------------------------
+@implementation canopy_delegate
 
-@implementation CanopyDelegate
-
-- (instancetype)initWithCanopyWindow:(canopy_window*)initWindow {
-    TRACE("Creating CanopyDelegate");
+- (instancetype)init_with_canopy_window:(canopy_window*)init_window
+{
+    TRACE("Creating Canopy Delegate");
     self = [super init];
     if (self) {
-        window = initWindow;
+        window = init_window;
         DEBUG("Window pointer assigned to delegate: %p", window);
     }
     return self;
 }
 
-- (BOOL)windowShouldClose:(id)sender {
+- (BOOL)windowShouldClose:(id)sender
+{
     INFO("Window close requested");
     window->should_close = true;
     return NO;
 }
 
-- (void)showCustomAboutPanel:(id)sender {
+- (void)showCustomAboutPanel:(id)sender
+{
     INFO("Displaying About panel");
 
     NSImage* icon = [[NSImage alloc] initWithContentsOfFile:@"assets/icon.svg"];
@@ -60,124 +68,38 @@ struct canopy_window {
     TRACE("About panel shown");
 }
 @end
-
 //----------------------------------------
 // View
 //----------------------------------------
-@interface CanopyView : NSView {
+@interface canopy_view : NSView
+{
     canopy_window* window;
 }
-- (instancetype)initWithFrame:(NSRect)frame window:(canopy_window*)win;
-- (void)setRenderColor:(color)color;
-- (color)getRenderColor;
+
+- (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win;
+
 @end
+//----------------------------------------
+@implementation canopy_view
 
-@implementation CanopyView
-
-- (instancetype)initWithFrame:(NSRect)frame window:(canopy_window*)win {
-    TRACE("Initializing CanopyView with frame (%d, %d)", (int)frame.size.width, (int)frame.size.height);
+- (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win {
+    TRACE("Initializing Canopy View with frame (%d, %d)", (int)frame.size.width, (int)frame.size.height);
     self = [super initWithFrame:frame];
     if (self) {
         window = win;
-        window->fb.clear_color = CANOPY_BACKGROUND_COLOR;
-        INFO("Default background color set: %s", color_to_string(CANOPY_BACKGROUND_COLOR));
     }
     return self;
 }
 
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
+- (void)updateTrackingAreas
+{ // To receive mouse entered and exit we setup a tracking area
+    NSTrackingAreaOptions opts =  NSTrackingMouseEnteredAndExited |
+                                  NSTrackingActiveInKeyWindow |
+                                  NSTrackingEnabledDuringMouseDrag |
+                                  NSTrackingInVisibleRect;
 
-- (void)setRenderColor:(color)color {
-    TRACE("Setting render color: %s", color_to_string(color));
-    window->fb.clear_color = color;
-    [self setNeedsDisplay:YES];
-}
-
-- (color)getRenderColor {
-    return window->fb.clear_color;
-}
-
-
-//----------------------------------------
-// Standard mouse event handler
-// so that i can add as many as i want later
-//----------------------------------------
-- (void)pushMouseEventWithAction:(canopy_mouse_action)action
-                           event:(NSEvent *)event
-                         scrollX:(float)sx
-                         scrollY:(float)sy
-{
-    NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
-
-    canopy_event e;
-    e.type = CANOPY_EVENT_MOUSE;
-    e.mouse.action = action;
-    e.mouse.x = (int)pos.x;
-    e.mouse.y = (int)pos.y;
-    e.mouse.button = (int)[event buttonNumber];
-    e.mouse.modifiers = (int)[event modifierFlags];
-    e.mouse.scroll_x = sx;
-    e.mouse.scroll_y = sy;
-
-    // Safe call only for click-related events
-    if (action == CANOPY_MOUSE_PRESS ||
-        action == CANOPY_MOUSE_RELEASE ||
-        action == CANOPY_MOUSE_DRAG) {
-        e.mouse.click_count = (int)[event clickCount];
-    } else {
-        e.mouse.click_count = 0;
-    }
-
-    canopy_push_event(e);
-}
-
-/* ------------  Press events ------------*/
-- (void)mouseDown:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
-}
-- (void)rightMouseDown:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
-}
-- (void)otherMouseDown:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
-}
-/* ------------ Release events ------------*/
-- (void)mouseUp:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
-}
-- (void)rightMouseUp:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
-}
-- (void)otherMouseUp:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
-}
-/* ------------Drag/move events ------------*/
-- (void)mouseDragged:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
-}
-- (void)rightMouseDragged:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
-}
-- (void)otherMouseDragged:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
-}
-- (void)mouseMoved:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_MOVE event:event scrollX:0 scrollY:0];
-}
-/* ------------Scroll events ------------ */
-- (void)scrollWheel:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_SCROLL
-                            event:event
-                         scrollX:[event scrollingDeltaX]
-                         scrollY:[event scrollingDeltaY]];
-}
-
-// To receive mouse entered and exit we setup a tracking area
-- (void)updateTrackingAreas {
-    [super updateTrackingAreas];
-    NSTrackingAreaOptions opts =
-        NSTrackingMouseEnteredAndExited | NSTrackingActiveInKeyWindow;
 
     NSTrackingArea* area = [[NSTrackingArea alloc]
                             initWithRect:[self bounds]
@@ -186,33 +108,113 @@ struct canopy_window {
                                 userInfo:nil];
 
     [self addTrackingArea:area];
+    [super updateTrackingAreas];
 }
 
+//----------------------------------------
+// Standard mouse event handler
+// so that i can add as many as i want later
+//----------------------------------------
+- (void)push_mouse_event_with_action:(canopy_mouse_action)action
+                           event:(NSEvent *)event
+                         scrollX:(float)sx
+                         scrollY:(float)sy
+{
+    NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
+
+    canopy_event e = {
+        .type = CANOPY_EVENT_MOUSE,
+        .mouse.action = action,
+        .mouse.x = (int)pos.x,
+        .mouse.y = (int)pos.y,
+        .mouse.button = (int)[event buttonNumber],
+        .mouse.modifiers = (int)[event modifierFlags],
+        .mouse.scroll_x = sx,
+        .mouse.scroll_y = sy,
+    };
+
+    // Safe call only for click-related events otherwise we trap
+    switch(action){
+        default: e.mouse.click_count = 0;
+        break;
+        case CANOPY_MOUSE_PRESS:
+        case CANOPY_MOUSE_RELEASE:
+        case CANOPY_MOUSE_DRAG:
+                 e.mouse.click_count = (int)[event clickCount];
+        break;
+    }
+
+    canopy_push_event(e);
+}
+
+/* ------------  Press events ------------*/
+- (void)mouseDown:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+}
+- (void)rightMouseDown:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+}
+- (void)otherMouseDown:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+}
+/* ------------ Release events ------------*/
+- (void)mouseUp:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+}
+- (void)rightMouseUp:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+}
+- (void)otherMouseUp:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+}
+/* ----------- Drag/move events -----------*/
+- (void)mouseDragged:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+}
+- (void)rightMouseDragged:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+}
+- (void)otherMouseDragged:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+}
+- (void)mouseMoved:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_MOVE event:event scrollX:0 scrollY:0];
+}
+/* ------------ Scroll events ------------ */
+- (void)scrollWheel:(NSEvent *)event {
+    [self push_mouse_event_with_action:CANOPY_MOUSE_SCROLL
+                            event:event
+                         scrollX:[event scrollingDeltaX]
+                         scrollY:[event scrollingDeltaY]];
+}
+/* -------- Enter and exit events -------- */
 - (void)mouseEntered:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_ENTER event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_ENTER event:event scrollX:0 scrollY:0];
 }
 
 - (void)mouseExited:(NSEvent *)event {
-    [self pushMouseEventWithAction:CANOPY_MOUSE_EXIT event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_EXIT event:event scrollX:0 scrollY:0];
 }
 
-/* ------------ Key events ------------ */
-- (void)pushKeyEventWithAction:(canopy_key_action)action event:(NSEvent *)event {
-    canopy_event e;
-    e.type = CANOPY_EVENT_KEY;
-    e.key.action = action;
-    e.key.keycode = (int)[event keyCode];
-    e.key.modifiers = (int)[event modifierFlags];
-    e.key.is_repeat = [event isARepeat] ? 1 : 0;
+/* ------------- Key events -------------- */
+- (void)push_key_event_with_action:(canopy_key_action)action event:(NSEvent *)event {
+    canopy_event e = {
+        .type = CANOPY_EVENT_KEY,
+        .key.action = action,
+        .key.keycode = (int)[event keyCode],
+        .key.modifiers = (int)[event modifierFlags],
+        .key.is_repeat = [event isARepeat] ? 1 : 0
+    };
+
     canopy_push_event(e);
 }
 
 - (void)keyDown:(NSEvent *)event {
-    [self pushKeyEventWithAction:CANOPY_KEY_PRESS event:event];
+    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
 }
 
 - (void)keyUp:(NSEvent *)event {
-    [self pushKeyEventWithAction:CANOPY_KEY_RELEASE event:event];
+    [self push_key_event_with_action:CANOPY_KEY_RELEASE event:event];
 }
 @end
 
@@ -308,7 +310,10 @@ static void create_menubar(id delegate)
 //--------------------------------------------------------------------------------
 
 /* Window functions */
-canopy_window* canopy_create_window(int width, int height, const char* title)
+canopy_window* canopy_create_window(const char* title,
+                                    int width,
+                                    int height,
+                                    canopy_window_style flags)
 {
     @autoreleasepool {
         [NSApplication sharedApplication];
@@ -325,40 +330,45 @@ canopy_window* canopy_create_window(int width, int height, const char* title)
 
         }
 
-        win->delegate = [[CanopyDelegate alloc]
-                            initWithCanopyWindow:win];
+        win->delegate = [[canopy_delegate alloc] init_with_canopy_window:win];
 
-        win->view = [[CanopyView alloc]
-                            initWithFrame:NSMakeRect(0, 0, width, height)
-                                   window:win];
+        win->view = [[canopy_view alloc]
+                init_with_frame: NSMakeRect(0, 0, width, height)
+                         window: win];
 
         win->window = [[NSWindow alloc]
-                         initWithContentRect:NSMakeRect(0, 0, width, height)
-                                   styleMask:CANOPY_WINDOW_STYLE_TITLED | CANOPY_WINDOW_STYLE_CLOSABLE
-                                     backing:NSBackingStoreBuffered
-                                       defer:NO];
+             initWithContentRect: NSMakeRect(0, 0, width, height)
+                       styleMask: (NSWindowStyleMask)flags
+                         backing: NSBackingStoreBuffered
+                           defer: NO];
 
         create_menubar(win->delegate);
 
         [(NSWindow*)win->window center];
-        [win->window setTitle:[NSString stringWithUTF8String:title]];
-        [win->window setDelegate:win->delegate];
-        [win->window setContentView:win->view];
+        [win->window setTitle: [NSString stringWithUTF8String:title]];
+        [win->window setDelegate: win->delegate];
+        [win->window setContentView: win->view];
         [win->window makeKeyAndOrderFront:nil];
-        [win->window setAcceptsMouseMovedEvents:YES];
-        [win->window makeFirstResponder:win->view];
+        [win->window setAcceptsMouseMovedEvents: YES];
+        [win->window makeFirstResponder: win->view];
 
-        [win->view setWantsLayer:YES];
-        [win->view setOpaque:YES];
-
-        CALayer* layer = [win->view layer];
-        [layer setOpaque:YES];
+        [win->view setWantsLayer: YES];
+        [win->view setOpaque: YES];
+        //[[win->view layer] setOpaque:YES]; // ensures the layer also is opaque - not needed
+        // Properly handle content scaling for fidelity display (i.e. retina display)
+        // INFO: Not supported yet, need to port this to every graphical section
+        NSView *view = (NSView *)win->view;
+        [[view layer] setContentsScale: view.window.backingScaleFactor];
+        win->pixel_ratio = view.window.backingScaleFactor;
+        INFO("Content Scale is : %i, not supported yet", win->pixel_ratio);
 
         canopy_init_framebuffer(win);
 
         win->should_close = false;
 
         INFO("Created window: \"%s\" (%dx%d)", title, width, height);
+
+        canopy_post_empty_event();
 
         return win;
     }
@@ -461,36 +471,6 @@ bool canopy_init_framebuffer(canopy_window *win)
     return true;
 }
 
-void canopy_clear_buffer(canopy_window* win)
-{
-    if (!win) {
-        ERROR("Null window passed to canopy_clear_buffer");
-        return;
-    }
-
-    if (win->fb.pixels == NULL) {
-        WARN("Framebuffer was uninitialized, reinitializing...");
-        canopy_init_framebuffer(win);
-
-        // Still null after init?
-        if (win->fb.pixels == NULL) {
-            ERROR("Failed to initialize framebuffer");
-            return;
-        }
-    }
-
-    // Get the background clear color from the view
-    color c = [win->view getRenderColor];
-    uint32_t clear_value = color_to_u32(c);
-
-    size_t total_pixels = win->fb.width * win->fb.height;
-    for (size_t i = 0; i < total_pixels; ++i) {
-        win->fb.pixels[i] = clear_value;
-    }
-
-}
-
-
 void canopy_present_buffer(canopy_window *window)
 {
     @autoreleasepool {
@@ -528,32 +508,6 @@ framebuffer *canopy_get_framebuffer(canopy_window *window)
 {
     return &window->fb;
 }
-void canopy_set_buffer_refresh_color(canopy_window *w, color c)
-{
-    DEBUG("Setting buffer clear color to: %s", color_to_string(c));
-    [w->view setRenderColor:c];
-}
-
-static inline uint32_t blend_pixel(uint32_t dst, uint32_t src)
-{
-    uint8_t sa = (src >> 24) & 0xFF;
-    if (sa == 255) return src;
-    if (sa == 0) return dst;
-
-    uint8_t sr = src & 0xFF;
-    uint8_t sg = (src >> 8) & 0xFF;
-    uint8_t sb = (src >> 16) & 0xFF;
-
-    uint8_t dr = dst & 0xFF;
-    uint8_t dg = (dst >> 8) & 0xFF;
-    uint8_t db = (dst >> 16) & 0xFF;
-
-    uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
-    uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
-    uint8_t b = (sb * sa + db * (255 - sa)) / 255;
-
-    return (0xFF << 24) | (b << 16) | (g << 8) | r;
-}
 
 void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
 {
@@ -567,20 +521,14 @@ void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
         return;
     }
 
-    int copy_width  = (backbuffer->width  < w->fb.width)  ? backbuffer->width  : w->fb.width;
-    int copy_height = (backbuffer->height < w->fb.height) ? backbuffer->height : w->fb.height;
-
-    for (int y = 0; y < copy_height; ++y) {
-        for (int x = 0; x < copy_width; ++x) {
-            int dst_index = y * w->fb.width + x;
-            int src_index = y * backbuffer->width + x;
-
-            w->fb.pixels[dst_index] = blend_pixel(w->fb.pixels[dst_index], backbuffer->pixels[src_index]);
-        }
-    }
-
+    // Old way of copying byte for byte is too expensive when i scale
+    // It is much more effecient to just swap pointers since the buffers
+    // are equal
+    //memcpy(w->fb.pixels, backbuffer->pixels, w->fb.height*w->fb.pitch);
+    uint32_t *temp = w->fb.pixels;
+    w->fb.pixels = backbuffer->pixels;
+    backbuffer->pixels = temp;
 }
-
 
 /* Pump messages so that the window is shown to be responsive
  * Also needed for event handling
@@ -590,12 +538,60 @@ void canopy_pump_events(void)
 {
     @autoreleasepool {
         NSEvent* event;
+
         while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
                                            untilDate:nil
                                               inMode:NSDefaultRunLoopMode
-                                             dequeue:YES])) {
-                                    [NSApp sendEvent:event];
-                                    [NSApp updateWindows];
+                                             dequeue:YES]))
+        {
+            [NSApp sendEvent:event];
+            [NSApp updateWindows];
         }
     } // autoreleasepool
+}
+void canopy_post_empty_event(void)
+{
+    @autoreleasepool {
+
+    NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+
+    } // autoreleasepool
+}
+
+void canopy_wait_events(void)
+{
+    @autoreleasepool {
+        NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                            untilDate:[NSDate distantFuture]
+                                               inMode:NSDefaultRunLoopMode
+                                              dequeue:YES];
+        if (event) {
+            [NSApp sendEvent:event];
+            [NSApp updateWindows];
+        }
+    }
+}
+void canopy_wait_events_timeout(double timeout_seconds)
+{
+    @autoreleasepool {
+        NSDate* timeout_date = [NSDate dateWithTimeIntervalSinceNow:timeout_seconds];
+
+        NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                            untilDate:timeout_date
+                                               inMode:NSDefaultRunLoopMode
+                                              dequeue:YES];
+        if (event) {
+            [NSApp sendEvent:event];
+            [NSApp updateWindows];
+        }
+    }
 }

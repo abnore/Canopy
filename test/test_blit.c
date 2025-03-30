@@ -12,6 +12,7 @@
 ********************************************************************************************/
 
 #include "canopy.h"
+#include "picasso.h" // for the colors and graphics
 
 #define WIDTH   800
 #define HEIGHT  600
@@ -25,7 +26,10 @@ int main(void)
         return 1;
     }
 
-    canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Canopy + Picasso - Blitting");
+    canopy_window* win = canopy_create_window("Canopy + Picasso - Blitting",
+                                                WIDTH, HEIGHT,
+                                                CANOPY_WINDOW_STYLE_TITLED |
+                                                CANOPY_WINDOW_STYLE_CLOSABLE);
     canopy_set_icon("assets/icon.svg");
 
     picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
@@ -33,27 +37,32 @@ int main(void)
         ERROR("Failed to create backbuffer");
         return 1;
     }
+    picasso_rect rect_red = {
+        .x = -100,
+        .y = -200,
+        .width = 200,
+        .height = 200,
+    };
+    picasso_rect rect_blue = {
+        .x = 450,
+        .y = 150,
+        .width = 100,
+        .height = 100,
+    };
+    picasso_rect rect_green = {
+        .x = 450,
+        .y = 200,
+        .width = -100,
+        .height = -100,
+    };
 
-    // Create and fill rectangles
-    color rect1[200 * 200];
-    color rect2[200 * 200];
-    color rect3[200 * 200];
-    color rect4[200 * 200];
-    color rect5[200 * 200];
-    color rect6[200 * 200];
-
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect1 }, CANOPY_RED);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect2 }, CANOPY_BLUE);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect3 }, CANOPY_GREEN);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect4 }, CANOPY_PURPLE);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect5 }, CANOPY_TEAL);
-    picasso_fill_backbuffer(&(picasso_backbuffer){ .width = 200, .height = 200, .pixels = (uint32_t*)rect6 }, CANOPY_CYAN);
+    color trans_green = GREEN;
+    trans_green.a = 0x50;
 
     canopy_init_timer();
     canopy_set_fps(60);
-    canopy_set_buffer_refresh_color(win, CANOPY_LIGHT_GRAY);
     //--------------------------------------------------------------------------------------
-
+    int dir = 1;
     // Main Game Loop
     while (!canopy_window_should_close(win))
     {
@@ -70,15 +79,16 @@ int main(void)
         // Draw
         //----------------------------------------------------------------------------------
         if (canopy_should_render_frame()) {
-            canopy_clear_buffer(win);
+
             picasso_clear_backbuffer(bf);
 
-            picasso_blit_bitmap(bf, rect1, 200, 200, 100, 100);
-            picasso_blit_bitmap(bf, rect2, 200, 200, 350, 150);
-            picasso_blit_bitmap(bf, rect3, 200, 200, 400, 200);
-            picasso_blit_bitmap(bf, rect4, 200, 200, 200, 200);
-            picasso_blit_bitmap(bf, rect5, 200, 200, 500, 250);
-            picasso_blit_bitmap(bf, rect6, 200, 200, 550, 300);
+            if(rect_red.x > 800) dir = -dir;
+            rect_red.x  += dir;
+            rect_red.y  += dir;
+
+            picasso_fill_rect(bf, &rect_red, RED);
+            picasso_fill_rect(bf, &rect_blue, BLUE);
+            picasso_fill_rect(bf, &rect_green, trans_green);
 
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
@@ -88,9 +98,9 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    shutdown_log();
     picasso_destroy_backbuffer(bf);
     canopy_free_window(win);
+    shutdown_log();
     //--------------------------------------------------------------------------------------
 
     return 0;

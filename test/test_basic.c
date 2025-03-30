@@ -15,6 +15,12 @@
 
 #define WIDTH   400
 #define HEIGHT  400
+#define PIXELS  WIDTH*HEIGHT
+
+// Phthalo Blue https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
+// little endian, abgr (rgba backwards)
+#define PHTALO_BLUE 0xff890f00
+#define CANOPY_BLUE 0xffff0000
 
 int main(void)
 {
@@ -25,17 +31,16 @@ int main(void)
         return 1;
     }
 
-    canopy_window* win = canopy_create_window(WIDTH, HEIGHT, "Canopy - Custom Framebuffer");
-    canopy_set_buffer_refresh_color(win, CANOPY_DARK_GRAY);
-
+    canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
+                                                WIDTH, HEIGHT,                                                CANOPY_WINDOW_STYLE_TITLED |
+                                                CANOPY_WINDOW_STYLE_CLOSABLE);
     canopy_init_timer();
-    canopy_set_fps(60);
+    //canopy_set_fps(60); // default is 60
 
     framebuffer fb;
-    fb.width = 200;
-    fb.height = 200;
+    fb.width = 400;
+    fb.height = 400;
     fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
-    fb.clear_color = CANOPY_BLUE;
 
     size_t buffer_size = fb.pitch * fb.height;
     fb.pixels = canopy_malloc(buffer_size);
@@ -45,10 +50,6 @@ int main(void)
         return 1;
     }
 
-    // Fill the framebuffer with its clear color (once)
-    for (int i = 0; i < fb.width * fb.height; ++i) {
-        fb.pixels[i] = color_to_u32(fb.clear_color);
-    }
     //--------------------------------------------------------------------------------------
 
     // Main Game Loop
@@ -57,17 +58,30 @@ int main(void)
         // Update
         //----------------------------------------------------------------------------------
         canopy_event event;
-        while (canopy_poll_event(&event)) {
+        while (canopy_poll_event(&event))
+        {
             // Handle events (mouse, keyboard, etc.)
         }
         //----------------------------------------------------------------------------------
 
         // Draw
         //----------------------------------------------------------------------------------
-        if (canopy_should_render_frame()) {
-            canopy_clear_buffer(win);                    // Clear main window framebuffer
-            canopy_swap_backbuffer(win, &fb);            // Copy custom framebuffer
-            canopy_present_buffer(win);                  // Present on screen
+        if (canopy_should_render_frame())
+        {
+            // Fill the framebuffer with its clear color
+            for (int i = 0; i < PIXELS; ++i) {
+                if(i >= PIXELS/2){
+                    fb.pixels[i] = CANOPY_BLUE;
+                }
+                else{
+                    fb.pixels[i] = PHTALO_BLUE;
+                }
+            }
+
+            // Do other stuff graphicly here
+
+            canopy_swap_backbuffer(win,&fb);    // Switch pointers of custom framebuffer
+            canopy_present_buffer(win);         // Present on screen
         }
         //----------------------------------------------------------------------------------
     }

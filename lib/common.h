@@ -17,7 +17,6 @@
 #include "input.h"        ///< Input keys and mouse buttons
 #include "logger.h"       ///< Logging system
 #include "canopy_time.h"  ///< Timing utilities
-#include "picasso.h"      ///< Color system
 
 //------------------------------------------------------------------------------
 // Memory Allocation
