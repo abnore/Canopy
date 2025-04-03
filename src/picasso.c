@@ -5,10 +5,9 @@
 
 #define return_defer(value) do { result = (value); goto defer; } while(0)
 
+#define X(x) color_to_u32(x)
 const char* color_to_string(color c)
 {
-#define X(x) color_to_u32(x)
-
     uint32_t value = X(c);
     switch (value) {
         case X(BLUE):        return "BLUE";
@@ -34,9 +33,10 @@ const char* color_to_string(color c)
 
         default: return "UNKNOWN";
     }
-#undef X
 }
+#undef X
 
+// WIP - not robust enough
 BMP *picasso_load_bmp(const char *filename)
 {
     BMP *image = canopy_malloc(sizeof(BMP));
@@ -243,23 +243,30 @@ static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_r
 
 static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
 {
-    uint8_t sa = (src >> 24) & 0xFF;
-    if (sa == 255) return src;
-    if (sa == 0) return dst;
+    color back = u32_to_color(dst);
+    color front = u32_to_color(src);
 
-    uint8_t sr = src & 0xFF;
-    uint8_t sg = (src >> 8) & 0xFF;
-    uint8_t sb = (src >> 16) & 0xFF;
+    uint8_t sa = GET_ALPHA(front); //(src >> 24) & 0xFF;
+    if (sa == 0xff) return src;
+    if (sa == 0x00) return dst;
 
-    uint8_t dr = dst & 0xFF;
-    uint8_t dg = (dst >> 8) & 0xFF;
-    uint8_t db = (dst >> 16) & 0xFF;
+    uint8_t sr = GET_RED(front); //src & 0xFF;
+    uint8_t sg = GET_GREEN(front); //(src >> 8) & 0xFF;
+    uint8_t sb = GET_BLUE(front); //(src >> 16) & 0xFF;
 
+    uint8_t dr = GET_RED(back); //dst & 0xFF;
+    uint8_t dg = GET_GREEN(back); //(dst >> 8) & 0xFF;
+    uint8_t db = GET_BLUE(back); //(dst >> 16) & 0xFF;
+
+    // alpha blending formula
     uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
     uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
     uint8_t b = (sb * sa + db * (255 - sa)) / 255;
 
-    return (0xFF << 24) | (b << 16) | (g << 8) | r;
+    color ret = (color){r, g, b, 0xff};
+
+    return color_to_u32(ret);
+    //return (0xFF << 24) | (b << 16) | (g << 8) | r;
 }
 
 
@@ -300,6 +307,24 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf)
     free(bf);
 }
 
+void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
+{
+    if (!bf) return NULL;
+    return (void*)bf->pixels;
+}
+
+void picasso_clear_backbuffer(picasso_backbuffer* bf)
+{
+    if (!bf || !bf->pixels) {
+        WARN("Attempted to clear NULL backbuffer");
+        return;
+    }
+
+    for (size_t i = 0; i <  bf->width * bf->height; ++i) {
+        bf->pixels[i] = color_to_u32(CLEAR_BACKGROUND);
+    }
+}
+
 void picasso_blit_bitmap(picasso_backbuffer* dst,
                          void* src_pixels, int src_w, int src_h,
                          int x, int y)
@@ -328,23 +353,7 @@ void picasso_blit_bitmap(picasso_backbuffer* dst,
     }
 }
 
-void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
-{
-    if (!bf) return NULL;
-    return (void*)bf->pixels;
-}
 
-void picasso_clear_backbuffer(picasso_backbuffer* bf)
-{
-    if (!bf || !bf->pixels) {
-        WARN("Attempted to clear NULL backbuffer");
-        return;
-    }
-
-    for (size_t i = 0; i <  bf->width * bf->height; ++i) {
-        bf->pixels[i] = color_to_u32(CLEAR_BACKGROUND);
-    }
-}
 
 
 // --------------------------------------------------------
@@ -367,7 +376,14 @@ void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c)
     }
 }
 
-/* This approach might be slightly wasteful, but it works! */
+/*
+ * FIX: This approach might be slightly wasteful, but it works!
+ * I calculate the whole rectangle and set outer bounds, and then i calculate an inner
+ * rectangle which is the thickness less in - i then set that to be skipped.
+ * So in practive i am going over every pixel of the larger rect, and skipping the inside
+ *
+ * I might be able to do a 4-slice instead
+ * */
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c)
 {
     if (!outer || !bf || thickness <= 0) return;
@@ -412,19 +428,32 @@ void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thicknes
     }
 }
 
+static inline picasso_rect picasso__make_circle_bounds(int x0, int y0, int radius)
+{
+    int overshoot = PICASSO_CIRCLE_DEFAULT_TOLERANCE + 1;
+
+    picasso_rect r = {
+        .x = x0 - radius - overshoot,
+        .y = y0 - radius - overshoot,
+        .width = (radius + overshoot) * 2 + 1,
+        .height = (radius + overshoot) * 2 + 1,
+    };
+    return r;
+}
+
 void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c)
 {
+    // create a box around the circle that is slightly larger then the radius
+    // that is all we loop over, we clip to bounds
     picasso_draw_bounds bounds = {0};
-    picasso_rect circle_box = {
-        .x = x0-radius, .y = y0-radius,
-        .height = radius*2,
-        .width = radius*2
-    };
+    picasso_rect circle_box = picasso__make_circle_bounds(x0, y0, radius);
     if(!picasso__clip_rect_to_bounds(bf, &circle_box, &bounds)) return;
+
     uint32_t new_pixel = color_to_u32(c);
+
     // a^2 + b^2 = c^2
-    for (int y = bounds.y0; y < bounds.y1 + 2; ++y) {
-        for (int x = bounds.x0; x < bounds.x1 + 2; ++x) {
+    for (int y = bounds.y0; y < bounds.y1; ++y) {
+        for (int x = bounds.x0; x < bounds.x1; ++x) {
             int dx = x - x0;
             int dy = y - y0;
             if((dx*dx + dy*dy <= radius*radius + radius)){
@@ -437,12 +466,7 @@ void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, col
 void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c)
 {
     picasso_draw_bounds bounds = {0};
-    picasso_rect circle_box = {
-        .x = x0 - radius, .y = y0 - radius,
-        .width = radius * 2,
-        .height = radius * 2
-    };
-
+    picasso_rect circle_box = picasso__make_circle_bounds(x0, y0, radius);
     if (!picasso__clip_rect_to_bounds(bf, &circle_box, &bounds)) return;
 
     uint32_t new_pixel = color_to_u32(c);
@@ -450,8 +474,8 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int 
     int outer = radius * radius;
     int inner = (radius - thickness) * (radius - thickness);
 
-    for (int y = bounds.y0; y < bounds.y1 + 2; ++y) {
-        for (int x = bounds.x0; x < bounds.x1 + 2; ++x) {
+    for (int y = bounds.y0; y < bounds.y1; ++y) {
+        for (int x = bounds.x0; x < bounds.x1; ++x) {
             int dx = x - x0;
             int dy = y - y0;
             int dist2 = dx * dx + dy * dy;

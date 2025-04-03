@@ -57,8 +57,6 @@ int main(void)
         .height = -(HEIGHT/2),
     };
 
-    color trans_green = GREEN;
-    trans_green.a = 0x50;
     // Initial animation values
     int xpos = 100;
     int ypos = 100;
@@ -100,10 +98,10 @@ int main(void)
 
 
             picasso_fill_rect(bf, &rect_blue, BLUE);
-            picasso_draw_rect(bf, &rect_red,100, RED);
-            picasso_fill_circle(bf,xpos, ypos, 40, BROWN);
-            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,1, WHITE);
-            picasso_fill_rect(bf, &rect_green, trans_green);
+            picasso_draw_rect(bf, &rect_red,10, RED);
+            picasso_fill_circle(bf,xpos, ypos, 40, YELLOW);
+            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,5, PINK);
+            picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 60));
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }
