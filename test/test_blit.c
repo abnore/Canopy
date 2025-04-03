@@ -31,6 +31,7 @@ int main(void)
                                                 CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
     canopy_set_icon("assets/icon.svg");
+    //canopy_set_window_transparent(win, true);
 
     picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
     if (!bf) {
@@ -39,30 +40,35 @@ int main(void)
     }
     picasso_rect rect_red = {
         .x = -100,
-        .y = -200,
+        .y = -100,
         .width = 200,
-        .height = 200,
+        .height = -200,
     };
     picasso_rect rect_blue = {
-        .x = 450,
-        .y = 150,
-        .width = 100,
-        .height = 100,
+        .x = 0,
+        .y = 0,
+        .width = WIDTH/2,
+        .height = HEIGHT/2,
     };
     picasso_rect rect_green = {
-        .x = 450,
-        .y = 200,
-        .width = -100,
-        .height = -100,
+        .x = WIDTH,
+        .y = HEIGHT,
+        .width = -(WIDTH/2),
+        .height = -(HEIGHT/2),
     };
 
     color trans_green = GREEN;
     trans_green.a = 0x50;
-
+    // Initial animation values
+    int xpos = 100;
+    int ypos = 100;
+    int vel_x = 6;
+    int vel_y = 4;
     canopy_init_timer();
     canopy_set_fps(60);
     //--------------------------------------------------------------------------------------
-    int dir = 1;
+    int dir = 4;
+    ERROR("Testing red error message");
     // Main Game Loop
     while (!canopy_window_should_close(win))
     {
@@ -82,14 +88,22 @@ int main(void)
 
             picasso_clear_backbuffer(bf);
 
-            if(rect_red.x > 800) dir = -dir;
+            if(rect_red.x > 1000 || rect_red.x < -500) dir = -dir;
             rect_red.x  += dir;
             rect_red.y  += dir;
 
-            picasso_fill_rect(bf, &rect_red, RED);
-            picasso_fill_rect(bf, &rect_blue, BLUE);
-            picasso_fill_rect(bf, &rect_green, trans_green);
+            // Bounce logic
+            if (xpos - 40 <= 0 || xpos + 40  >= WIDTH)  vel_x = -vel_x;
+            if (ypos - 40 <= 0 || ypos + 40 >= HEIGHT) vel_y = -vel_y;
+            xpos += vel_x;
+            ypos += vel_y;
 
+
+            picasso_fill_rect(bf, &rect_blue, BLUE);
+            picasso_draw_rect(bf, &rect_red,100, RED);
+            picasso_fill_circle(bf,xpos, ypos, 40, BROWN);
+            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,1, WHITE);
+            picasso_fill_rect(bf, &rect_green, trans_green);
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }

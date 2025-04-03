@@ -11,6 +11,7 @@ struct canopy_window {
     framebuffer fb;
 
     bool should_close;
+    bool is_opaque;
     uint32_t pixel_ratio; // support of high spi/retina screen
 };
 
@@ -93,6 +94,7 @@ struct canopy_window {
 
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
+- (BOOL)is_opaque { return window->is_opaque;}
 - (void)updateTrackingAreas
 { // To receive mouse entered and exit we setup a tracking area
     NSTrackingAreaOptions opts =  NSTrackingMouseEnteredAndExited |
@@ -353,7 +355,9 @@ canopy_window* canopy_create_window(const char* title,
         [win->window makeFirstResponder: win->view];
 
         [win->view setWantsLayer: YES];
-        [win->view setOpaque: YES];
+        // default opaque, can be set manually
+        //[win->view setOpaque: YES];
+        win->is_opaque = true;
         //[[win->view layer] setOpaque:YES]; // ensures the layer also is opaque - not needed
         // Properly handle content scaling for fidelity display (i.e. retina display)
         // INFO: Not supported yet, need to port this to every graphical section
@@ -393,6 +397,25 @@ void canopy_set_icon(const char* filepath)
     }
 }
 
+bool canopy_is_window_opaque(canopy_window *win)
+{
+    return [win->view is_opaque];
+}
+void canopy_set_window_transparent(canopy_window *win, bool enable)
+{
+    if(enable) {
+        win->is_opaque = false;
+        [win->window setOpaque:NO];
+        [win->window setHasShadow:NO];
+        [win->window setBackgroundColor:[NSColor clearColor]];
+        TRACE("Window transparent");
+    } else {
+        win->is_opaque = true;
+        [win->window setOpaque:YES];
+        [win->window setHasShadow:YES];
+        TRACE("Window opaque");
+    }
+}
 void canopy_free_window(canopy_window* win)
 {
     if (!win) {

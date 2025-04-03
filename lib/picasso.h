@@ -163,8 +163,15 @@ typedef struct {
     int x, y, width, height; // supporting negative values
 } picasso_rect;
 
-void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
-void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
-void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
+typedef struct {
+    int x0, y0, x1, y1;
+} picasso_draw_bounds;
 
+void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
+void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *r,int thickness, color c);
+
+void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c);
+void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius, int thickness, color c);
+
+void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
 #endif // PICASSO_H

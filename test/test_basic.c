@@ -34,6 +34,7 @@ int main(void)
     canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
                                                 WIDTH, HEIGHT,                                                CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
+    //canopy_set_window_transparent(win, true);
     canopy_init_timer();
     //canopy_set_fps(60); // default is 60
 

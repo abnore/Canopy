@@ -94,6 +94,8 @@ void canopy_free_window(canopy_window* w);
 /// @brief Sets the dock icon of the application (macOS only).
 /// @param[in] filepath Path to an image file to use as the application icon.
 void canopy_set_icon(const char* filepath);
+bool canopy_is_window_opaque(canopy_window *win);
+void canopy_set_window_transparent(canopy_window *win, bool enable);
 
 /// @brief Checks if the window should close (user clicked the close button).
 /// @param[in] w The window to query.
