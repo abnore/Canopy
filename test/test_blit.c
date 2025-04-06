@@ -38,6 +38,10 @@ int main(void)
         ERROR("Failed to create backbuffer");
         return 1;
     }
+
+
+    picasso_image *image = picasso_load_bmp("assets/sample.bmp");
+
     picasso_rect rect_red = {
         .x = -100,
         .y = -100,
@@ -97,10 +101,11 @@ int main(void)
             ypos += vel_y;
 
 
+            picasso_blit_bitmap(bf, image->pixels, image->width, image->height,0,0);
             picasso_fill_rect(bf, &rect_blue, BLUE);
             picasso_draw_rect(bf, &rect_red,10, RED);
             picasso_fill_circle(bf,xpos, ypos, 40, YELLOW);
-            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,5, PINK);
+            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,5, SET_ALPHA(PINK,50));
             picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 60));
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);

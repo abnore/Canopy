@@ -14,7 +14,9 @@ src_common  = $(src_dir)/canopy.m \
               $(src_dir)/canopy_event.c \
               $(src_dir)/canopy_time.c \
               $(src_dir)/common.c \
+              $(src_dir)/bmp.c \
               $(src_dir)/picasso.c \
+              $(src_dir)/picasso_icc_profiles.c \
               $(logger_dir)/logger.c
 
 tests       = test_basic test_blit test_complex

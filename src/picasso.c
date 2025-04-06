@@ -1,13 +1,97 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
 #include "picasso.h"
 #include "logger.h"
 
-#include <errno.h>
 
-#define return_defer(value) do { result = (value); goto defer; } while(0)
 
-#define X(x) color_to_u32(x)
+void picasso_image_free(picasso_image *img);
+
+void* picasso_calloc(size_t count, size_t size){
+    return calloc(count, size);
+}
+
+void picasso_free(void *ptr){
+    free(ptr);
+}
+
+void *picasso_malloc(size_t size){
+    return malloc(size);
+}
+
+void * picasso_realloc(void *ptr, size_t size){
+    return realloc(ptr, size);
+}
+
+/* -------------------- Little Endian Byte Readers Utility -------------------- */
+uint8_t picasso_read_u8(const uint8_t *p) {
+    return p[0];
+}
+
+uint16_t picasso_read_u16_le(const uint8_t *p) {
+    uint16_t lo = picasso_read_u8(p);
+    uint16_t hi = picasso_read_u8(p + 1);
+    return lo | (hi << 8);
+}
+
+uint32_t picasso_read_u32_le(const uint8_t *p) {
+    uint16_t lo = picasso_read_u16_le(p);
+    uint16_t hi = picasso_read_u16_le(p + 2);
+    return (uint32_t)lo | ((uint32_t)hi << 16);
+}
+int32_t picasso_read_s32_le(const uint8_t *p) {
+    return (int32_t)picasso_read_u32_le(p);// safe because casting unsigned to signed preserves bit pattern
+}
+/* -------------------- File Support -------------------- */
+
+void *picasso_read_entire_file(const char *path, size_t *out_size)
+{
+    long size;
+    void *buffer = NULL;
+    size_t read;
+
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+
+    if (fseek(f, 0, SEEK_END) != 0  ||
+        (size = ftell(f)) < 0       ||
+        fseek(f, 0, SEEK_SET) != 0  ||
+        !(buffer = picasso_malloc((size_t)size))) {
+        fclose(f);
+        return NULL;
+    }
+
+    read = fread(buffer, 1, (size_t)size, f);
+    fclose(f);
+
+    if (read != (size_t)size) {
+        picasso_free(buffer);
+        return NULL;
+    }
+
+    if (out_size) *out_size = (size_t)size;
+    return buffer;
+}
+
+int picasso_write_file(const char *path, const void *data, size_t size)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) return 0;
+
+    size_t written = fwrite(data, 1, size, f);
+    fclose(f);
+
+    return written == size;
+}
+
+/* -------------------- Color Section -------------------- */
 const char* color_to_string(color c)
 {
+#define X(x) color_to_u32(x)
+
     uint32_t value = X(c);
     switch (value) {
         case X(BLUE):        return "BLUE";
@@ -33,118 +117,184 @@ const char* color_to_string(color c)
 
         default: return "UNKNOWN";
     }
-}
 #undef X
+}
 
-// WIP - not robust enough
-BMP *picasso_load_bmp(const char *filename)
+/* PPM header is literal ascii - must be parsed
+ * like a text file, not with headers.
+ *  5036 0a33 3030 2032 3030 0a32 3535 0a
+ *  P 6  \n3  0 0    2  0  0 \n2   5 5 \n
+ *
+typedef struct {
+    size_t width;
+    size_t height;
+    size_t maxval;
+    uint8_t *pixels;
+}PPM;
+*/
+// Convert ASCII character to number (e.g. '6' -> 6)
+#define aton(n) ((int)((n) - 0x30))
+// Convert number to ASCII character (e.g. 6 -> '6')
+#define ntoa(n) ((char)((n) + 0x30))
+
+static void skip_comments(FILE *f) {
+    int c;
+    while ((c = fgetc(f)) == '#') {
+        while ((c = fgetc(f)) != '\n' && c != EOF);
+    }
+    ungetc(c, f); // put the non-comment character back
+}
+
+PPM *picasso_load_ppm(const char *filename)
 {
-    BMP *image = canopy_malloc(sizeof(BMP));
+    FILE *f = fopen(filename, "rb");
+    if (!f) {
+        ERROR("Failed to open file: %s", filename);
+        return NULL;
+    }
+    TRACE("Opened file: %s", filename);
+
+    char magic[3];
+    if (fscanf(f, "%2s", magic) != 1 || strcmp(magic, "P6") != 0) {
+        ERROR("Invalid PPM magic number: expected 'P6', got '%s'", magic);
+        fclose(f);
+        return NULL;
+    }
+    TRACE("Magic number OK: %s", magic);
+
+    skip_comments(f);
+    int width, height, maxval;
+
+    if (fscanf(f, "%d", &width) != 1) {
+        ERROR("Failed to read width");
+        goto fail;
+    }
+    DEBUG("Width: %d", width);
+
+    skip_comments(f);
+    if (fscanf(f, "%d", &height) != 1) {
+        ERROR("Failed to read height");
+        goto fail;
+    }
+    DEBUG("Height: %d", height);
+
+    skip_comments(f);
+    if (fscanf(f, "%d", &maxval) != 1) {
+        ERROR("Failed to read maxval");
+        goto fail;
+    }
+    DEBUG("Maxval: %d", maxval);
+
+    if (maxval != 255) {
+        ERROR("Unsupported maxval: %d (expected 255)", maxval);
+        goto fail;
+    }
+
+    // Skip single whitespace after maxval before pixel data
+    fgetc(f);
+    TRACE("Skipped whitespace after maxval");
+
+    size_t pixels_size = width * height * 3;
+    unsigned char *pixels = picasso_malloc(pixels_size);
+    if (!pixels) {
+        ERROR("Out of memory allocating pixel buffer (%zu bytes)", pixels_size);
+        goto fail;
+    }
+    DEBUG("Allocated pixel buffer (%zu bytes)", pixels_size);
+
+    size_t read = fread(pixels, 1, pixels_size, f);
+    if (read != pixels_size) {
+        ERROR("Unexpected EOF: expected %zu bytes, got %zu", pixels_size, read);
+        picasso_free(pixels);
+        goto fail;
+    }
+
+    TRACE("Read pixel data");
+    fclose(f);
+
+    PPM *image = picasso_malloc(sizeof(PPM));
     if (!image) {
-        fprintf(stderr, "Failed to allocate BMP struct\n");
-        return NULL;
-    }
-    memset(image, 0, sizeof(BMP));
-
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        perror("Unable to open file");
-        canopy_free(image);
+        ERROR("Out of memory allocating PPM struct");
+        picasso_free(pixels);
         return NULL;
     }
 
-    // Read File Header
-    fread(&image->fh, sizeof(image->fh), 1, file);
-    if (image->fh.file_type != 0x4D42) {
-        fprintf(stderr, "Not a valid BMP file (magic: 0x%X)\n", image->fh.file_type);
-        fclose(file);
-        canopy_free(image);
-        return NULL;
-    }
+    image->width = width;
+    image->height = height;
+    image->maxval = maxval;
+    image->pixels = pixels;
 
-    // Read Info Header
-    fread(&image->ih, sizeof(image->ih), 1, file);
-
-    // Move to pixel data
-    fseek(file, image->fh.offset_data, SEEK_SET);
-
-    // Allocate pixel data buffer
-    image->pixels = canopy_malloc(image->ih.size_image);
-    if (!image->pixels) {
-        fprintf(stderr, "Failed to allocate BMP pixel buffer\n");
-        fclose(file);
-        canopy_free(image);
-        return NULL;
-    }
-
-    // Read pixel data
-    fread(image->pixels, image->ih.size_image, 1, file);
-    fclose(file);
-
-    // Convert from BGRA to RGBA (macOS expects RGBA)
-    for (int i = 0; i < image->ih.width * image->ih.height; ++i) {
-        uint8_t *p = &image->pixels[i * 4];
-        uint8_t tmp = p[0];
-        p[0] = p[2];  // Swap B and R
-        p[2] = tmp;
-    }
-
+    INFO("Loaded PPM image: %dx%d", width, height);
     return image;
-}
 
-void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height) {
-    int bytes_per_pixel = 4; // RGBA
-    int row_size = width * bytes_per_pixel;
-
-    uint8_t temp_row[row_size]; // Temporary row buffer
-
-    for (int y = 0; y < height / 2; y++) {
-        int top_index = y * row_size;
-        int bottom_index = (height - y - 1) * row_size;
-
-        // Swap the rows
-        memcpy(temp_row, &buffer[top_index], row_size);
-        memcpy(&buffer[top_index], &buffer[bottom_index], row_size);
-        memcpy(&buffer[bottom_index], temp_row, row_size);
-    }
-}
-
-PPM *picasso_load_ppm(const char *file_path)
-{
+fail:
+    ERROR("Failed to parse PPM file: %s", filename);
+    fclose(f);
     return NULL;
 }
 
 int picasso_save_to_ppm(PPM *image, const char *file_path)
 {
-	int result = 0;
-	FILE *f = NULL;
+    FILE *f = fopen(file_path, "wb");
+    if (f == NULL) {
+        ERROR("Failed to open file for writing: %s", file_path);
+        return -1;
+    }
+    TRACE("Opened file for writing: %s", file_path);
 
-	{
-		f = fopen(file_path, "wb");
-		if (f == NULL) return_defer(errno);
+    fprintf(f, "P6\n%zu %zu\n255\n", image->width, image->height);
+    DEBUG("Wrote PPM header: P6 %zux%zu", image->width, image->height);
 
-		fprintf(f, "P6\n%zu %zu 255\n", image->width, image->height);
-		if (ferror(f)) return_defer(errno);
+    size_t total_pixels = image->width * image->height;
+    TRACE("Saving %zu pixels", total_pixels);
 
-		for (size_t i = 0; i < image->width*image->height; i++) {
-			// 0xAABBGGRR - skipping alpha
-			uint32_t pixel = image->pixels[i];
-			uint8_t bytes[3] = {
-				(pixel>>(8*0)) & 0xFF, // Red
-				(pixel>>(8*1)) & 0xFF, // Green
-				(pixel>>(8*2)) & 0xFF  // Blue
-			};
-			fwrite(bytes, sizeof(bytes), 1, f);
-			if (ferror(f)) return_defer(errno);
-		}
-	}
+    for (size_t i = 0; i < total_pixels; i++) {
+        // Format: 0xAABBGGRR - skipping alpha
+        uint32_t pixel = image->pixels[i];
+        uint8_t bytes[3] = {
+            (pixel >>  0) & 0xFF, // Red
+            (pixel >>  8) & 0xFF, // Green
+            (pixel >> 16) & 0xFF  // Blue
+        };
+        size_t written = fwrite(bytes, sizeof(bytes), 1, f);
+        if (written != 1) {
+            ERROR("Failed to write pixel %zu", i);
+            fclose(f);
+            return -1;
+        }
+    }
 
-defer:
-	if (f) fclose(f);
-	return result;
+    fclose(f);
+    INFO("Saved PPM image to %s (%zux%zu)", file_path, image->width, image->height);
+    return 0;
 }
 
+picasso_image *picasso_alloc_image(int width, int height, int channels)
+{
+    if (width <= 0 || height <= 0 || (channels != 3 && channels != 4)) return NULL;
 
+    picasso_image *img = malloc(sizeof(picasso_image));
+    if (!img) return NULL;
+
+    img->width = width;
+    img->height = height;
+    img->channels = channels;
+    img->pixels = malloc(width * height * channels);
+    if (!img->pixels) {
+        free(img);
+        return NULL;
+    }
+
+    return img;
+}
+
+void picasso_free_image(picasso_image *img)
+{
+    if (img) {
+        free(img->pixels);
+        free(img);
+    }
+}
 // SPRITES
 
 picasso_sprite_sheet* picasso_create_sprite_sheet(
@@ -164,7 +314,7 @@ picasso_sprite_sheet* picasso_create_sprite_sheet(
     int rows = (sheet_height - 2 * margin_y + spacing_y) / (frame_height + spacing_y);
     int total = cols * rows;
 
-    picasso_sprite_sheet* sheet = canopy_malloc(sizeof(picasso_sprite_sheet));
+    picasso_sprite_sheet* sheet = picasso_malloc(sizeof(picasso_sprite_sheet));
     if (!sheet) return NULL;
 
     sheet->pixels         = pixels;
@@ -180,9 +330,9 @@ picasso_sprite_sheet* picasso_create_sprite_sheet(
     sheet->frames_per_col = rows;
     sheet->frame_count    = total;
 
-    sheet->frames = canopy_malloc(sizeof(picasso_sprite) * total);
+    sheet->frames = picasso_malloc(sizeof(picasso_sprite) * total);
     if (!sheet->frames) {
-        canopy_free(sheet);
+        picasso_free(sheet);
         return NULL;
     }
 
@@ -201,9 +351,10 @@ picasso_sprite_sheet* picasso_create_sprite_sheet(
 void picasso_destroy_sprite_sheet(picasso_sprite_sheet* sheet)
 {
     if (!sheet) return;
-    canopy_free(sheet->frames);
-    canopy_free(sheet);
+    picasso_free(sheet->frames);
+    picasso_free(sheet);
 }
+
 
 // --------------------------------------------------------
 // Graphical functions and utilities
@@ -235,41 +386,32 @@ static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_r
 
     db->x0 = (r->x > 0) ? r->x : 0;
     db->y0 = (r->y > 0) ? r->y : 0;
-    db->x1 = (r->x + r->width < bf->width) ? r->x + r->width : bf->width;
-    db->y1 = (r->y + r->height < bf->height) ? r->y + r->height : bf->height;
+    db->x1 = (r->x + r->width < (int)bf->width) ? r->x + r->width : (int)bf->width;
+    db->y1 = (r->y + r->height < (int)bf->height) ? r->y + r->height : (int)bf->height;
 
     return true;
 }
 
 static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
 {
-    color back = u32_to_color(dst);
-    color front = u32_to_color(src);
+    uint8_t sa = (src >> 24) & 0xFF;
+    if (sa == 255) return src;
+    if (sa == 0) return dst;
 
-    uint8_t sa = GET_ALPHA(front); //(src >> 24) & 0xFF;
-    if (sa == 0xff) return src;
-    if (sa == 0x00) return dst;
+    uint8_t sr = src & 0xFF;
+    uint8_t sg = (src >> 8) & 0xFF;
+    uint8_t sb = (src >> 16) & 0xFF;
 
-    uint8_t sr = GET_RED(front); //src & 0xFF;
-    uint8_t sg = GET_GREEN(front); //(src >> 8) & 0xFF;
-    uint8_t sb = GET_BLUE(front); //(src >> 16) & 0xFF;
+    uint8_t dr = dst & 0xFF;
+    uint8_t dg = (dst >> 8) & 0xFF;
+    uint8_t db = (dst >> 16) & 0xFF;
 
-    uint8_t dr = GET_RED(back); //dst & 0xFF;
-    uint8_t dg = GET_GREEN(back); //(dst >> 8) & 0xFF;
-    uint8_t db = GET_BLUE(back); //(dst >> 16) & 0xFF;
-
-    // alpha blending formula
     uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
     uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
     uint8_t b = (sb * sa + db * (255 - sa)) / 255;
 
-    color ret = (color){r, g, b, 0xff};
-
-    return color_to_u32(ret);
-    //return (0xFF << 24) | (b << 16) | (g << 8) | r;
+    return (0xFF << 24) | (b << 16) | (g << 8) | r;
 }
-
-
 // --------------------------------------------------------
 // Backbuffer operations
 // --------------------------------------------------------
@@ -281,16 +423,16 @@ picasso_backbuffer* picasso_create_backbuffer(int width, int height)
         return NULL;
     }
 
-    picasso_backbuffer* bf = malloc(sizeof(picasso_backbuffer));
+    picasso_backbuffer* bf = picasso_malloc(sizeof(picasso_backbuffer));
     if (!bf) return NULL;
 
     bf->width = width;
     bf->height = height;
     bf->pitch = width * sizeof(uint32_t); // 4 bytes per pixel
-    bf->pixels = calloc(width * height, sizeof(uint32_t));
+    bf->pixels = picasso_calloc(width * height, sizeof(uint32_t));
 
     if (!bf->pixels) {
-        free(bf);
+        picasso_free(bf);
         return NULL;
     }
 
@@ -301,28 +443,10 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf)
 {
     if (!bf) return;
     if (bf->pixels) {
-        free(bf->pixels);
+        picasso_free(bf->pixels);
         bf->pixels = NULL;
     }
-    free(bf);
-}
-
-void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
-{
-    if (!bf) return NULL;
-    return (void*)bf->pixels;
-}
-
-void picasso_clear_backbuffer(picasso_backbuffer* bf)
-{
-    if (!bf || !bf->pixels) {
-        WARN("Attempted to clear NULL backbuffer");
-        return;
-    }
-
-    for (size_t i = 0; i <  bf->width * bf->height; ++i) {
-        bf->pixels[i] = color_to_u32(CLEAR_BACKGROUND);
-    }
+    picasso_free(bf);
 }
 
 void picasso_blit_bitmap(picasso_backbuffer* dst,
@@ -353,8 +477,23 @@ void picasso_blit_bitmap(picasso_backbuffer* dst,
     }
 }
 
+void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
+{
+    if (!bf) return NULL;
+    return (void*)bf->pixels;
+}
 
+void picasso_clear_backbuffer(picasso_backbuffer* bf)
+{
+    if (!bf || !bf->pixels) {
+        WARN("Attempted to clear NULL backbuffer");
+        return;
+    }
 
+    for (size_t i = 0; i <  bf->width * bf->height; ++i) {
+        bf->pixels[i] = color_to_u32(CLEAR_BACKGROUND);
+    }
+}
 
 // --------------------------------------------------------
 // Graphical primitives
@@ -376,14 +515,7 @@ void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c)
     }
 }
 
-/*
- * FIX: This approach might be slightly wasteful, but it works!
- * I calculate the whole rectangle and set outer bounds, and then i calculate an inner
- * rectangle which is the thickness less in - i then set that to be skipped.
- * So in practive i am going over every pixel of the larger rect, and skipping the inside
- *
- * I might be able to do a 4-slice instead
- * */
+/* This approach might be slightly wasteful, but it works! */
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c)
 {
     if (!outer || !bf || thickness <= 0) return;
@@ -427,6 +559,7 @@ void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thicknes
         }
     }
 }
+
 
 static inline picasso_rect picasso__make_circle_bounds(int x0, int y0, int radius)
 {

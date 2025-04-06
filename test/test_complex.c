@@ -3,7 +3,7 @@
 *   CANOPY [Example] - Moving Bitmap (Bouncing Background)
 *
 *   Description:
-*       Loads two BMP images using Picasso, and animates one of them bouncing across the screen.
+*       Loads two bmp images using Picasso, and animates one of them bouncing across the screen.
 *       Demonstrates event handling, bitmap blitting, and backbuffer swapping with Canopy.
 *
 *   Controls:
@@ -41,11 +41,8 @@ int main(void)
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
     canopy_set_icon("assets/icon.png");
 
-    BMP* bmp_example = picasso_load_bmp("assets/sample.bmp");
-    BMP* bmp_mine    = picasso_load_bmp("assets/background.bmp");
-
-    if (bmp_example) picasso_flip_buffer_vertical(bmp_example->pixels, bmp_example->ih.width, bmp_example->ih.height);
-    if (bmp_mine)    picasso_flip_buffer_vertical(bmp_mine->pixels, bmp_mine->ih.width, bmp_mine->ih.height);
+    picasso_image* bmp_example = picasso_load_bmp("assets/sample.bmp");
+    picasso_image* bmp_mine    = picasso_load_bmp("assets/background.bmp");
 
     picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
 
@@ -55,8 +52,8 @@ int main(void)
     int vel_x = 1;
     int vel_y = 1;
 
-    int sprite_width  = bmp_mine->ih.width;
-    int sprite_height = bmp_mine->ih.height;
+    int sprite_width  = bmp_mine->width;
+    int sprite_height = bmp_mine->height;
 
     canopy_init_timer();
     canopy_set_fps(60);
@@ -111,8 +108,8 @@ int main(void)
             ypos += vel_y;
 
             // Blit bitmaps
-            picasso_blit_bitmap(bf, bmp_example->pixels, bmp_example->ih.width, bmp_example->ih.height, 0, 0);
-            picasso_blit_bitmap(bf, bmp_mine->pixels,    bmp_mine->ih.width,    bmp_mine->ih.height,    xpos, ypos);
+            picasso_blit_bitmap(bf, bmp_example->pixels, bmp_example->width, bmp_example->height, 0, 0);
+            picasso_blit_bitmap(bf, bmp_mine->pixels,    bmp_mine->width,    bmp_mine->height,    xpos, ypos);
 
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
