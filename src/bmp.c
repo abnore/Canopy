@@ -99,15 +99,7 @@ char *_print_header_type(bmp_header_type type)
     }
 }
 
-// Goes over every pixel and lets you define a function body, where
-// you can manipulate each pixel individually
-#define foreach_pixel(img, body) do {                             \
-    for (int y = 0; y < (img)->height; ++y) {                     \
-        uint8_t *row = (img)->pixels + y * (img)->row_stride;     \
-        for (int x = 0; x < (img)->width; ++x) {                  \
-            uint8_t *pixels = row + x * (img)->channels;          \
-            do { body } while (0);                                \
-        }}} while (0)
+
 
 // This counts how many bits are set to 1 in the mask.
 static inline int mask_bit_count(uint32_t mask) {
@@ -288,7 +280,7 @@ int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile p
     return 0;
 }
 
-bmp *picasso_create_bmp_from_rgba(int width, int height, int channels, const uint8_t *pixel_data)
+bmp *picasso_create_bmp_from_rgba(const uint8_t *pixel_data, int width, int height, int channels)
 {
     if (width <= 0 || height == 0 || !pixel_data) {
         ERROR("Invalid BMP creation params: %dx%d", width, height);

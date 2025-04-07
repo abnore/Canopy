@@ -1,10 +1,10 @@
 /*******************************************************************************************
 *
-*   CANOPY [Example] - Custom Framebuffer Rendering
+*   CANOPY [Example] - Resizing of images using Picasso library
 *
 *   Description:
-*       Renders a solid-colored rectangle using a manually created framebuffer.
-*       Demonstrates how to allocate, fill, and display a custom framebuffer using Canopy.
+*       Creates a picasso image from bmp and copies it.
+*       Using blit on to the backbuffer and storing it as a bmp before displaying it
 *
 *   Controls:
 *       [Close Window] - Exit application
@@ -22,11 +22,10 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(NULL, true)) {
+    if (!init_log(true, false, true)) {
         WARN("Failed to initialize logger");
         return 1;
     }
-
     canopy_window* win = canopy_create_window("Canopy + Picasso - Blitting",
                                                 WIDTH, HEIGHT,
                                                 CANOPY_WINDOW_STYLE_TITLED |
@@ -39,18 +38,27 @@ int main(void)
         ERROR("Failed to create backbuffer");
         return 1;
     }
-    picasso_image *src = picasso_load_bmp("assets/tiles.bmp");
-    picasso_image *dst2x = picasso_alloc_image(270, 66, 4);
-    picasso_image *dst3x = picasso_alloc_image(405, 99, 4);
+    picasso_image *src = picasso_load_bmp("assets/sample1.bmp");
+    int width = src->width, height = src->height;
+    picasso_image *dst2x = picasso_alloc_image(width,height, 4);
+    picasso_image *dst3x = picasso_alloc_image(width,height, 4);
 
     picasso_copy(src, dst2x);
     picasso_copy(src, dst3x);
 
+    picasso_clear_backbuffer(bf);
+
+    picasso_blit_bitmap(bf, dst2x->pixels, dst2x->width, dst2x->height,0,33);
+    picasso_blit_bitmap(bf, dst3x->pixels, dst3x->width, dst3x->height,0,99);
+    picasso_blit_bitmap(bf, src->pixels, src->width, src->height,0,0);
+
+    picasso_image *file_from_bf = picasso_image_from_backbuffer(bf);
+    bmp *file = picasso_create_bmp_from_rgba(file_from_bf->pixels, file_from_bf->width, file_from_bf->height, 4);
+    picasso_save_to_bmp(file, "resize_new.bmp", 0);
+
     canopy_init_timer();
-    canopy_set_fps(60);
+    canopy_set_fps(24);
     //--------------------------------------------------------------------------------------
-    int dir = 4;
-    //
     // Main Game Loop
     while (!canopy_window_should_close(win))
     {

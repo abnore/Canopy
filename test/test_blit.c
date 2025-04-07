@@ -21,7 +21,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(NULL, true)) {
+    if (!init_log(false, true, true)) {
         WARN("Failed to initialize logger");
         return 1;
     }
@@ -40,7 +40,7 @@ int main(void)
     }
 
 
-    picasso_image *image = picasso_load_bmp("assets/sample.bmp");
+    picasso_image *image = picasso_load_bmp("assets/sample1.bmp");
 
     picasso_rect rect_red = {
         .x = -100,

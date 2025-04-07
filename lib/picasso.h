@@ -60,7 +60,21 @@ typedef enum {
 #define PICASSO_MAX(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a > _b ? _a : _b; })
 #define PICASSO_MIN(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a : _b; })
 #define PICASSO_SWAP(a,b)  ({ __typeof__(a) _a = (a); (a) = (b); (b) = _a;})
-
+#define PICASSO_CLAMP(x, lo, hi) ({          \
+    __typeof__(x) _x = (x);                  \
+    __typeof__(lo) _lo = (lo);               \
+    __typeof__(hi) _hi = (hi);               \
+    _x < _lo ? _lo : (_x > _hi ? _hi : _x);  \
+})
+// Goes over every pixel and lets you define a function body, where
+// you can manipulate each pixel individually
+#define foreach_pixel(img, body) do {                             \
+    for (int y = 0; y < (img)->height; ++y) {                     \
+        uint8_t *row = &(img)->pixels[y * (img)->row_stride];     \
+        for (int x = 0; x < (img)->width; ++x) {                  \
+            uint8_t *pixels = &row[x * (img)->channels];          \
+            do { body } while (0);                                \
+        }}} while (0)
 
 // Set alpha value in percent, where 0 is transparent and 100 is fully opaque
 #define SET_ALPHA(c, percent)   ((color){(c).r,(c).g, (c).b, \
@@ -125,6 +139,21 @@ typedef struct {
 
 const char* color_to_string(color c);
 
+static inline void unpack_rbga(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
+{
+    *r = (pixel >> 0) & 0xFF;
+    *g = (pixel >> 8) & 0xFF;
+    *b = (pixel >> 16) & 0xFF;
+    *a = (pixel >> 24) & 0xFF;
+}
+
+static inline void unpack_bgra(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
+{
+    *b = (pixel >> 0) & 0xFF;
+    *g = (pixel >> 8) & 0xFF;
+    *r = (pixel >> 16) & 0xFF;
+    *a = (pixel >> 24) & 0xFF;
+}
 /* -------------------- Format Section -------------------- */
 
 #define PICASSO_MAX_DIM 1<<14 // 16,384X16,384 *4 is over 1GB - that is enough
@@ -199,7 +228,7 @@ picasso_image *picasso_alloc_image(int width, int height, int channels);
 /// @brief BMP functions
 picasso_image *picasso_load_bmp(const char *filename);
 int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile profile);
-bmp *picasso_create_bmp_from_rgba(int width, int height, int channels, const uint8_t *pixel_data);
+bmp *picasso_create_bmp_from_rgba(const uint8_t *pixel_data, int width, int height, int channels);
 int picasso_save_rgba_to_bmp(const char *file_path, int width, int height, int channels, const uint8_t *pixels, picasso_icc_profile profile);
 
 /// @brief PPM functions
@@ -250,6 +279,7 @@ typedef struct {
 
 picasso_backbuffer* picasso_create_backbuffer(int width, int height);
 void picasso_destroy_backbuffer(picasso_backbuffer *bf);
+picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf);
 void picasso_clear_backbuffer(picasso_backbuffer *bf);
 void picasso_blit_bitmap(picasso_backbuffer *dst, void *src_pixels, int src_w, int src_h, int x, int y);
 void* picasso_backbuffer_pixels(picasso_backbuffer *bf);

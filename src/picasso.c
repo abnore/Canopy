@@ -429,7 +429,7 @@ picasso_backbuffer* picasso_create_backbuffer(int width, int height)
 
     bf->width = width;
     bf->height = height;
-    bf->pitch = width * sizeof(uint32_t); // 4 bytes per pixel
+    bf->pitch = width; // pixels are 32bit - pitch = amount of pixels wide
     bf->pixels = picasso_calloc(width * height, sizeof(uint32_t));
 
     if (!bf->pixels) {
@@ -448,6 +448,32 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf)
         bf->pixels = NULL;
     }
     picasso_free(bf);
+}
+picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf)
+{
+    if (!bf || !bf->pixels) return NULL;
+
+    picasso_image *img = picasso_alloc_image(bf->width, bf->height, 4); // 4 channels
+    if (!img) return NULL;
+
+    for (int y = 0; y < (int)bf->height; ++y) {
+        for (int x = 0; x < (int)bf->width; ++x) {
+            uint32_t pixel = bf->pixels[y * bf->pitch + x];
+
+            uint8_t r = (pixel >>  0) & 0xFF;
+            uint8_t g = (pixel >>  8) & 0xFF;
+            uint8_t b = (pixel >> 16) & 0xFF;
+            uint8_t a = (pixel >> 24) & 0xFF;
+
+            uint8_t *dst = &img->pixels[ y * img->row_stride + x * img->channels ];
+            dst[0] = r;
+            dst[1] = g;
+            dst[2] = b;
+            dst[3] = a;
+        }
+    }
+
+    return img;
 }
 
 void picasso_blit_bitmap(picasso_backbuffer* dst,

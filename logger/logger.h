@@ -65,16 +65,17 @@ extern uint32_t log_levels_enabled;
 /**
  * @brief Initializes the logger system.
  *
- * If `filepath` is NULL, logs go to stdout.
+ * If `filename` is NULL, logs go to stdout.
  * Automatically enables/disables color formatting based on isatty().
  *
  * Also internally parses the LOG_LEVELS environment variable.
  *
- * @param filepath       Path to log file or NULL for stdout
+ * @param generate_log   True to generate a log in logs/ if not in stdout
  * @param enable_colors  True to enable terminal colors (stdout only)
+ * @param silence_stderr True to silence stderr - removes log noise
  * @return A `log_type` enum indicating output mode or failure
  */
-log_type init_log(const char* filepath, bool enable_colors);
+log_type init_log(bool generate_log, bool enable_colors, bool silence_stderr);
 
 /**
  * @brief Gracefully shuts down the logger and closes files if needed.

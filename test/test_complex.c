@@ -24,7 +24,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(NULL, true)) {
+    if (!init_log(false, true, true)) {
         WARN("Failed to setup logger");
     }
 
@@ -119,7 +119,10 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    // In order to get the entire history, it is important that the log
+    // is the last thing to be shutdown
     shutdown_log();
+    // **Everything after this point does not get logged**
     canopy_free_window(win);
     picasso_destroy_backbuffer(bf);
 

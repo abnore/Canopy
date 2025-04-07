@@ -26,7 +26,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(NULL, true)) {
+    if (!init_log(false, true, true)) {
         WARN("Failed to initialize logger\n");
         return 1;
     }
