@@ -273,13 +273,14 @@ picasso_image *picasso_alloc_image(int width, int height, int channels)
 {
     if (width <= 0 || height <= 0 || (channels != 3 && channels != 4)) return NULL;
 
-    picasso_image *img = malloc(sizeof(picasso_image));
+    picasso_image *img = picasso_malloc(sizeof(picasso_image));
     if (!img) return NULL;
 
     img->width = width;
     img->height = height;
     img->channels = channels;
-    img->pixels = malloc(width * height * channels);
+    img->row_stride = channels * width;
+    img->pixels = picasso_calloc(sizeof(uint8_t), img->width * img->row_stride);
     if (!img->pixels) {
         free(img);
         return NULL;
@@ -477,6 +478,21 @@ void picasso_blit_bitmap(picasso_backbuffer* dst,
     }
 }
 
+void picasso_copy(picasso_image *src, picasso_image *dst)
+{
+    for (int y = 0; y < dst->height; ++y) {
+        for (int x = 0; x < dst->width; ++x) {
+            size_t nx = x * src->width / dst->width;
+            size_t ny = y * src->height / dst->height;
+
+            uint8_t *dst_pixel = dst->pixels + y * dst->row_stride + x * dst->channels;
+            uint8_t *src_pixel = src->pixels + ny * src->row_stride + nx * src->channels;
+
+            for (int c = 0; c < dst->channels; ++c)
+                dst_pixel[c] = src_pixel[c];
+        }
+    }
+}
 void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
 {
     if (!bf) return NULL;

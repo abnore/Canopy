@@ -15,6 +15,7 @@ typedef struct {
     uint8_t *pixels;
 } picasso_image;
 
+void picasso_copy(picasso_image *src, picasso_image *dst);
 /* -------------------- Custom Allocators -------------------- */
 void* picasso_calloc(size_t count, size_t size);
 void picasso_free(void *ptr);

@@ -19,7 +19,7 @@ src_common  = $(src_dir)/canopy.m \
               $(src_dir)/picasso_icc_profiles.c \
               $(logger_dir)/logger.c
 
-tests       = test_basic test_blit test_complex
+tests       = test_basic test_blit test_complex test_resize
 outputs     = $(addprefix $(bin_dir)/, $(tests))
 
 all: $(outputs)
