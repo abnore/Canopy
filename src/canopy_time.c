@@ -4,6 +4,8 @@
 #include <mach/mach_time.h>
 #include <inttypes.h>  // For PRIu64
 
+#define DEFAULT_FPS 60
+
 static struct {
     mach_timebase_info_data_t timebase;
     double to_seconds;
@@ -24,12 +26,12 @@ void canopy_init_timer(void)
     canopy_timer.to_seconds = ((double)canopy_timer.timebase.numer /
                                (double)canopy_timer.timebase.denom) / 1e9;
 
-    canopy_timer.target_frame_time = 1.0 / 60.0;  // Default to 60 FPS
+    canopy_timer.target_frame_time = 1.f / DEFAULT_FPS;  // Default to 60 FPS
     canopy_timer.last_frame_time = canopy_get_time();  // Initialize clock
 
-    TRACE("Timer initialized");
+    INFO("Timer initialized");
     DEBUG("Timer conversion factor: %.12f", canopy_timer.to_seconds);
-    DEBUG("Default target frame time: %.6f seconds", canopy_timer.target_frame_time);
+    TRACE("Default target frame time: %.6f seconds, %d FPS", canopy_timer.target_frame_time, DEFAULT_FPS);
 }
 
 double canopy_get_time(void)

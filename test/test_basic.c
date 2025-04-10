@@ -32,11 +32,12 @@ int main(void)
     }
 
     canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
-                                                WIDTH, HEIGHT,                                                CANOPY_WINDOW_STYLE_TITLED |
+                                                WIDTH, HEIGHT,
+                                                CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
     //canopy_set_window_transparent(win, true);
     canopy_init_timer();
-    //canopy_set_fps(60); // default is 60
+    canopy_set_fps(60); // default is 60
 
     framebuffer fb;
     fb.width = 400;
@@ -62,6 +63,7 @@ int main(void)
         while (canopy_poll_event(&event))
         {
             // Handle events (mouse, keyboard, etc.)
+            //INFO("An event was triggered!");
         }
         //----------------------------------------------------------------------------------
 
@@ -69,14 +71,23 @@ int main(void)
         //----------------------------------------------------------------------------------
         if (canopy_should_render_frame())
         {
-            // Fill the framebuffer with its clear color
+            // Fill the framebuffer with its color
             for (int i = 0; i < PIXELS; ++i) {
+                fb.pixels[i] = 0xff2020ff;
+            }
+
+            for (int i = 0; i < PIXELS; ++i) {
+
+                int alpha_inc = 128; //((i/10)%WIDTH);
+
                 if(i >= PIXELS/2){
-                    fb.pixels[i] = CANOPY_BLUE;
+                    uint32_t pixel = CANOPY_BLUE;
+                    fb.pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
                 }
-                else{
-                    fb.pixels[i] = PHTALO_BLUE;
-                }
+//                else{
+//                    uint32_t pixel = PHTALO_BLUE;
+//                    fb.pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
+//                }
             }
 
             // Do other stuff graphicly here

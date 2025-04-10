@@ -3,7 +3,10 @@
 *   CANOPY [Example] - Picasso Backbuffer Blitting
 *
 *   Description:
-*       Renders 6 solid-colored rectangles using a custom graphics library called Picasso.
+*       Renders one solid-colored rectangle and one semi-transparent using a custom graphics
+*       library called Picasso. Also loading a bmp and displaying that, all under a transparent
+*       circle. One red square outlined moving to test clipping and boundries, and one outlined
+*       circle movin to test boundries and drawing.
 *       Demonstrates how to fill, blit, and display a custom backbuffer using Canopy.
 *
 *   Controls:
@@ -96,17 +99,17 @@ int main(void)
 
             // Bounce logic
             if (xpos - 40 <= 0 || xpos + 40  >= WIDTH)  vel_x = -vel_x;
-            if (ypos - 40 <= 0 || ypos + 40 >= HEIGHT) vel_y = -vel_y;
+            if (ypos - 40 <= 0 || ypos + 40 >= HEIGHT)  vel_y = -vel_y;
             xpos += vel_x;
             ypos += vel_y;
 
 
-            picasso_blit_bitmap(bf, image->pixels, image->width, image->height,0,0);
+            picasso_blit_bitmap(bf,image, (WIDTH-image->width)/2, (HEIGHT-image->height)/2);
             picasso_fill_rect(bf, &rect_blue, BLUE);
             picasso_draw_rect(bf, &rect_red,10, RED);
             picasso_fill_circle(bf,xpos, ypos, 40, YELLOW);
             picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,5, SET_ALPHA(PINK,50));
-            picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 60));
+            picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 40));
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }

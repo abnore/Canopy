@@ -584,7 +584,10 @@ picasso_image *picasso_load_bmp(const char *filename)
     size_t read = 0;
 
     FILE *fp = fopen(filename, "rb");
-    if (!fp) return NULL;
+    if (!fp) {
+        ERROR("Failed loading %s", filename);
+        return NULL;
+    }
 
     bmp.type = picasso__validate_bmp(&read, &bmp, fp);
     if (bmp.type == BITMAP_INVALID) {
@@ -617,6 +620,7 @@ picasso_image *picasso_load_bmp(const char *filename)
         img->row_stride = bmp.row_stride;
         img->pixels     = picasso_malloc(bmp.row_stride * bmp.height);
     }
+    TRACE("CHANNELS = %d", img->channels);
 
     uint8_t *row_buf = malloc(bmp.row_size);
 
@@ -638,27 +642,26 @@ picasso_image *picasso_load_bmp(const char *filename)
     /* Finally done reading the file */
     fclose(fp);
 
+    bmp.set_all_alpha = true;
 
-    color pixel;
-    foreach_pixel(img,
-    {
+    color c;
+    foreach_pixel_image(img, {
         if (bmp.comp == BI_BITFIELDS && bmp.channels == 4)
         {
-            decode_and_write_pixel_32bit(pixel, pixels); // Decode from 32-bit pixel using bitmasks
-            bmp.set_all_alpha = (!bmp.set_all_alpha && (pixels[3] != 0));
-
-        } else {
-            // Legacy BGR -> RGB swap
-            PICASSO_SWAP(pixels[0],pixels[2]);
+            decode_and_write_pixel_32bit(c, pixel); // Decode from 32-bit pixel using bitmasks
+            if (pixel[3] != 0) bmp.set_all_alpha = false;
+        } else
+        {
+            PICASSO_SWAP(pixel[0], pixel[2]); // BGR → RGB
         }
     });
 
     if (bmp.set_all_alpha && img->channels == 4)
     {
         TRACE("All alpha values were zero — setting to 0xff");
-        foreach_pixel(img, {
-                pixels[3] = 0xFF;
-        });
+        foreach_pixel_image(img, {
+                pixel[3] = 0xFF;
+                });
     }
     return img;
 }

@@ -296,66 +296,6 @@ void picasso_free_image(picasso_image *img)
         free(img);
     }
 }
-// SPRITES
-
-picasso_sprite_sheet* picasso_create_sprite_sheet(
-    uint32_t* pixels,
-    int sheet_width,
-    int sheet_height,
-    int frame_width,
-    int frame_height,
-    int margin_x,
-    int margin_y,
-    int spacing_x,
-    int spacing_y)
-{
-    if (!pixels || frame_width <= 0 || frame_height <= 0) return NULL;
-
-    int cols = (sheet_width  - 2 * margin_x + spacing_x) / (frame_width + spacing_x);
-    int rows = (sheet_height - 2 * margin_y + spacing_y) / (frame_height + spacing_y);
-    int total = cols * rows;
-
-    picasso_sprite_sheet* sheet = picasso_malloc(sizeof(picasso_sprite_sheet));
-    if (!sheet) return NULL;
-
-    sheet->pixels         = pixels;
-    sheet->sheet_width    = sheet_width;
-    sheet->sheet_height   = sheet_height;
-    sheet->frame_width    = frame_width;
-    sheet->frame_height   = frame_height;
-    sheet->margin_x       = margin_x;
-    sheet->margin_y       = margin_y;
-    sheet->spacing_x      = spacing_x;
-    sheet->spacing_y      = spacing_y;
-    sheet->frames_per_row = cols;
-    sheet->frames_per_col = rows;
-    sheet->frame_count    = total;
-
-    sheet->frames = picasso_malloc(sizeof(picasso_sprite) * total);
-    if (!sheet->frames) {
-        picasso_free(sheet);
-        return NULL;
-    }
-
-    int i = 0;
-    for (int row = 0; row < rows; ++row) {
-        for (int col = 0; col < cols; ++col) {
-            int x = margin_x + col * (frame_width + spacing_x);
-            int y = margin_y + row * (frame_height + spacing_y);
-            sheet->frames[i++] = (picasso_sprite){ x, y, frame_width, frame_height };
-        }
-    }
-
-    return sheet;
-}
-
-void picasso_destroy_sprite_sheet(picasso_sprite_sheet* sheet)
-{
-    if (!sheet) return;
-    picasso_free(sheet->frames);
-    picasso_free(sheet);
-}
-
 
 // --------------------------------------------------------
 // Graphical functions and utilities
@@ -476,30 +416,60 @@ picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf)
     return img;
 }
 
-void picasso_blit_bitmap(picasso_backbuffer* dst,
-                         void* src_pixels, int src_w, int src_h,
-                         int x, int y)
+void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y)
 {
-    if (!dst || !src_pixels || !dst->pixels) return;
+    if (!dst || !src || !src->pixels || !dst->pixels) {
+        //Gracefulle exits - this will most likely be inside a loop, no error reporting
+        return;
+    }
 
-    int dst_w = dst->width;
-    int dst_h = dst->height;
+    foreach_pixel_image(src, {
+        int dst_x = x + offset_x;
+        int dst_y = y + offset_y;
+        if (dst_x < 0 || dst_x >= (int)dst->width ||
+            dst_y < 0 || dst_y >= (int)dst->height)
+            continue;
 
-    for (int row = 0; row < src_h; ++row)
-    {
-        int dst_y = y + row;
-        if (dst_y < 0 || dst_y >= dst_h) continue;
+        color c = get_color(pixel, src->channels);
+        uint32_t rgba = color_to_u32(c);
 
-        for (int col = 0; col < src_w; ++col)
-        {
-            int dst_x = x + col;
-            if (dst_x < 0 || dst_x >= dst_w) continue;
+        uint32_t *dst_pixel = &dst->pixels[dst_y * dst->width + dst_x];
+        *dst_pixel = picasso__blend_pixel(*dst_pixel, rgba);
+    });
+}
 
-            uint32_t* src = (uint32_t*)src_pixels;
-            uint32_t* dst_pixel = &dst->pixels[dst_y * dst->width + dst_x];
-            uint32_t  src_pixel = src[row * src_w + col];
+void picasso_blit_rect(picasso_backbuffer *dst, picasso_image *src,
+                       picasso_rect src_rect, picasso_rect dst_rect)
+{
+    if (!dst || !src || !dst->pixels || !src->pixels) return;
 
-            *dst_pixel = picasso__blend_pixel(*dst_pixel, src_pixel);
+    picasso__normalize_rect(&src_rect);
+    picasso__normalize_rect(&dst_rect);
+
+    // Bounds of the destination
+    picasso_draw_bounds bounds;
+    if (!picasso__clip_rect_to_bounds(dst, &dst_rect, &bounds))
+        return;
+
+    float scale_x = (float)src_rect.width  / dst_rect.width;
+    float scale_y = (float)src_rect.height / dst_rect.height;
+
+    for (int dy = bounds.y0; dy < bounds.y1; ++dy) {
+        int rel_dy = dy - dst_rect.y;
+        int sy = src_rect.y + (int)(rel_dy * scale_y);
+        if (sy < 0 || sy >= src->height) continue;
+
+        for (int dx = bounds.x0; dx < bounds.x1; ++dx) {
+            int rel_dx = dx - dst_rect.x;
+            int sx = src_rect.x + (int)(rel_dx * scale_x);
+            if (sx < 0 || sx >= src->width) continue;
+
+            uint8_t *src_pixel = &src->pixels[sy * src->row_stride + sx * src->channels];
+            color c = get_color(src_pixel, src->channels);
+            uint32_t rgba = color_to_u32(c);
+            dst->pixels[dy * dst->width + dx] = picasso__blend_pixel(
+                                                    dst->pixels[dy * dst->width + dx],
+                                                    rgba);
         }
     }
 }
@@ -508,11 +478,12 @@ void picasso_copy(picasso_image *src, picasso_image *dst)
 {
     for (int y = 0; y < dst->height; ++y) {
         for (int x = 0; x < dst->width; ++x) {
+
             size_t nx = x * src->width / dst->width;
             size_t ny = y * src->height / dst->height;
 
-            uint8_t *dst_pixel = dst->pixels + y * dst->row_stride + x * dst->channels;
-            uint8_t *src_pixel = src->pixels + ny * src->row_stride + nx * src->channels;
+            uint8_t *dst_pixel = &dst->pixels[y * dst->row_stride + x * dst->channels];
+            uint8_t *src_pixel = &src->pixels[ny * src->row_stride + nx * src->channels];
 
             for (int c = 0; c < dst->channels; ++c)
                 dst_pixel[c] = src_pixel[c];

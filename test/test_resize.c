@@ -38,19 +38,19 @@ int main(void)
         ERROR("Failed to create backbuffer");
         return 1;
     }
-    picasso_image *src = picasso_load_bmp("assets/sample1.bmp");
-    int width = src->width, height = src->height;
-    picasso_image *dst2x = picasso_alloc_image(width,height, 4);
-    picasso_image *dst3x = picasso_alloc_image(width,height, 4);
+    picasso_image *tiles = picasso_load_bmp("assets/tiles.bmp");
+    int width = tiles->width, height = tiles->height;
+    picasso_image *dst2x = picasso_alloc_image(width*2,height*2, 4);
+    picasso_image *dst3x = picasso_alloc_image(width*3,height*3, 4);
 
-    picasso_copy(src, dst2x);
-    picasso_copy(src, dst3x);
+    picasso_copy(tiles, dst2x);
+    picasso_copy(tiles, dst3x);
 
     picasso_clear_backbuffer(bf);
 
-    picasso_blit_bitmap(bf, dst2x->pixels, dst2x->width, dst2x->height,0,33);
-    picasso_blit_bitmap(bf, dst3x->pixels, dst3x->width, dst3x->height,0,99);
-    picasso_blit_bitmap(bf, src->pixels, src->width, src->height,0,0);
+    picasso_blit_bitmap(bf, dst2x,0,33);
+    picasso_blit_bitmap(bf, dst3x,0,99);
+    picasso_blit_bitmap(bf, tiles,0,0);
 
     picasso_image *file_from_bf = picasso_image_from_backbuffer(bf);
     bmp *file = picasso_create_bmp_from_rgba(file_from_bf->pixels, file_from_bf->width, file_from_bf->height, 4);
@@ -64,6 +64,8 @@ int main(void)
     {
         // Input
         //----------------------------------------------------------------------------------
+        picasso_rect tile_src = { 0, 0, 17, 17 };  // get tile at (32,0) of size 32x32
+        picasso_rect draw_dst = { 500, 400, 96, 96 }; // draw scaled 2x2 on screen
 
         // Draw
         //----------------------------------------------------------------------------------
@@ -71,9 +73,10 @@ int main(void)
 
             picasso_clear_backbuffer(bf);
 
-            picasso_blit_bitmap(bf, dst2x->pixels, dst2x->width, dst2x->height,0,33);
-            picasso_blit_bitmap(bf, dst3x->pixels, dst3x->width, dst3x->height,0,99);
-            picasso_blit_bitmap(bf, src->pixels, src->width, src->height,0,0);
+            picasso_blit_rect(bf, tiles, tile_src, draw_dst);
+            picasso_blit_bitmap(bf, dst2x,0,33);
+            picasso_blit_bitmap(bf, dst3x,0,99);
+            picasso_blit_bitmap(bf, tiles,0,0);
 
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);

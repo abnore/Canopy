@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* -------------------- Image Object -------------------- */
+/* -------------------- Picasso Objects -------------------- */
 typedef struct {
     int width;
     int height;
@@ -14,6 +14,17 @@ typedef struct {
     int row_stride;
     uint8_t *pixels;
 } picasso_image;
+
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} color;
+
+typedef struct {
+    int x, y, width, height; // supporting negative values
+} picasso_rect;
 
 void picasso_copy(picasso_image *src, picasso_image *dst);
 /* -------------------- Custom Allocators -------------------- */
@@ -68,13 +79,26 @@ typedef enum {
 })
 // Goes over every pixel and lets you define a function body, where
 // you can manipulate each pixel individually
-#define foreach_pixel(img, body) do {                             \
+#define foreach_pixel_image(img, body) do {                       \
     for (int y = 0; y < (img)->height; ++y) {                     \
-        uint8_t *row = &(img)->pixels[y * (img)->row_stride];     \
         for (int x = 0; x < (img)->width; ++x) {                  \
-            uint8_t *pixels = &row[x * (img)->channels];          \
+            uint8_t *pixel = &(img)->pixels[y * (img)->row_stride + x * (img)->channels]; \
             do { body } while (0);                                \
         }}} while (0)
+
+static inline color get_color(const uint8_t* pixel, int channels)
+{
+    color c = {0};
+
+    c.r = pixel[0];
+    c.g = pixel[1];
+    c.b = pixel[2];
+
+    if (channels == 4) c.a = pixel[3];
+    else c.a = 255;
+
+    return c;
+}
 
 // Set alpha value in percent, where 0 is transparent and 100 is fully opaque
 #define SET_ALPHA(c, percent)   ((color){(c).r,(c).g, (c).b, \
@@ -87,12 +111,6 @@ typedef enum {
 #define PICASSO_CIRCLE_DEFAULT_TOLERANCE 2
 /* -------------------- Color Section -------------------- */
 
-typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
-}color;
 
 // https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
 // RGBA layout expected by Cocoa and NSBitmapImageRep
@@ -236,40 +254,6 @@ PPM *picasso_load_ppm(const char *filename);
 int picasso_save_to_ppm(PPM *image, const char *file_path);
 
 
-/* ------------------- SpriteSheet Section -------------------- */
-
-/// @brief Represents a single sprite frame in a sheet.
-typedef struct {
-    int x;       ///< X position (in pixels) in the sheet
-    int y;       ///< Y position (in pixels) in the sheet
-    int width;   ///< Width of the frame
-    int height;  ///< Height of the frame
-} picasso_sprite;
-
-/// @brief Represents a sprite sheet made from a bitmap or other image.
-typedef struct {
-    uint32_t* pixels;         ///< Raw pixel data (entire sheet)
-    int sheet_width;          ///< Width of full image
-    int sheet_height;         ///< Height of full image
-    int frame_width;          ///< Width of each frame
-    int frame_height;         ///< Height of each frame
-    int spacing_x;            ///< Spacing between frames (horizontal)
-    int spacing_y;            ///< Spacing between frames (vertical)
-    int margin_x;             ///< Margin at edges (horizontal)
-    int margin_y;             ///< Margin at edges (vertical)
-    int frames_per_row;       ///< How many sprites per row
-    int frames_per_col;       ///< How many sprites per column
-    int frame_count;          ///< Total number of frames
-
-    picasso_sprite* frames;   ///< Array of sprite metadata (x, y, width, height)
-} picasso_sprite_sheet;
-
-void free_sprite_sheet(picasso_sprite_sheet* sheet);
-picasso_sprite_sheet* picasso_create_sprite_sheet( uint32_t* pixels, int sheet_width, int sheet_height,
-                                                    int frame_width, int frame_height,
-                                                    int margin_x, int margin_y,
-                                                    int spacing_x, int spacing_y);
-
 /* -------------------- Backbuffer Section -------------------- */
 
 typedef struct {
@@ -281,14 +265,11 @@ picasso_backbuffer* picasso_create_backbuffer(int width, int height);
 void picasso_destroy_backbuffer(picasso_backbuffer *bf);
 picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf);
 void picasso_clear_backbuffer(picasso_backbuffer *bf);
-void picasso_blit_bitmap(picasso_backbuffer *dst, void *src_pixels, int src_w, int src_h, int x, int y);
+void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y);
+void picasso_blit_rect(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_rect, picasso_rect dst_rect);
 void* picasso_backbuffer_pixels(picasso_backbuffer *bf);
 
 /* -------------------- Graphical Raster Section -------------------- */
-typedef struct {
-    int x, y, width, height; // supporting negative values
-} picasso_rect;
-
 
 typedef struct {
     int x0, y0, x1, y1;

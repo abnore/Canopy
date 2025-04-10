@@ -108,8 +108,8 @@ int main(void)
             ypos += vel_y;
 
             // Blit bitmaps
-            picasso_blit_bitmap(bf, bmp_example->pixels, bmp_example->width, bmp_example->height, 0, 0);
-            picasso_blit_bitmap(bf, bmp_mine->pixels,    bmp_mine->width,    bmp_mine->height,    xpos, ypos);
+            picasso_blit_bitmap(bf, bmp_example, 0, 0);
+            picasso_blit_bitmap(bf, bmp_mine,    xpos, ypos);
 
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
