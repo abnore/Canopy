@@ -16,6 +16,10 @@
 #define WIDTH   800
 #define HEIGHT  600
 
+void handle_text(canopy_window *w, canopy_event_text *e) {
+    INFO("Typed: %s", e->utf8);
+    (void)w;
+}
 void handle_key(canopy_window *w, canopy_event_key* e )
 {
     if (e->action == CANOPY_KEY_PRESS) {
@@ -36,14 +40,14 @@ void handle_mouse(canopy_window *w,  canopy_event_mouse* e )
         //INFO("Mouse moved to: (%.0d, %.0d)", e->x, e->y);
     } else if (e->action == CANOPY_MOUSE_PRESS) {
 
-        INFO("CLICKED %s", e->button == CANOPY_MOUSE_BUTTON_LEFT? "left" : "right" );
+        INFO("clicked %s", e->button == CANOPY_MOUSE_BUTTON_LEFT? "left" : "right" );
     }
 }
 int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(false, true, true)) {
+    if (!init_log(false, true, false)) {
         WARN("Failed to initialize logger");
         return 1;
     }
@@ -59,6 +63,7 @@ int main(void)
 
     canopy_set_callback_key( handle_key);
     canopy_set_callback_mouse( handle_mouse);
+    canopy_set_callback_text( handle_text);
 
     picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
     if (!bf) {
@@ -66,6 +71,7 @@ int main(void)
         return 1;
     }
 
+    double mouse_x, mouse_y;
     picasso_image *image = picasso_load_bmp("assets/sample1.bmp");
     //--------------------------------------------------------------------------------------
     // Main Game Loop
@@ -74,14 +80,15 @@ int main(void)
         // Input
         //----------------------------------------------------------------------------------
         canopy_dispatch_events(win);
+        canopy_get_mouse_pos(win, &mouse_x, &mouse_y);
         //----------------------------------------------------------------------------------
-
         // Draw
         //----------------------------------------------------------------------------------
         if (canopy_should_render_frame()) {
 
             picasso_clear_backbuffer(bf);
             picasso_blit_bitmap(bf,image, (WIDTH-image->width)/2, (HEIGHT-image->height)/2);
+            picasso_fill_circle(bf, mouse_x, mouse_y, 5, RED);
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);
         }

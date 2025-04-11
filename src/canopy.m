@@ -13,6 +13,8 @@ struct canopy_window {
     bool should_close;
     bool is_opaque;
     uint32_t pixel_ratio; // support of high spi/retina screen
+
+    double mouse_x, mouse_y;
 };
 
 //----------------------------------------
@@ -72,9 +74,10 @@ struct canopy_window {
 //----------------------------------------
 // View
 //----------------------------------------
-@interface canopy_view : NSView
+@interface canopy_view : NSView <NSTextInputClient>
 {
     canopy_window* window;
+    NSMutableAttributedString* markedText;
 }
 
 - (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win;
@@ -112,6 +115,45 @@ struct canopy_window {
     [self addTrackingArea:area];
     [super updateTrackingAreas];
 }
+//----------------------------------------
+//Cookie-cutter automatic code inclusion. To get insertText to fire, we need to at least
+//pretend implement these.
+//Cocoa expects your view to pretend to support IME by implementing a handful
+//of NSTextInputClient methods. Dont implement, just stub them out to “fake it.”
+//
+- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange { return nil; }
+- (NSUInteger)characterIndexForPoint:(NSPoint)point { return 0; }
+- (void)doCommandBySelector:(nonnull SEL)selector { }
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange { NSRect r = {}; return r; }
+- (BOOL)hasMarkedText { return markedText.length > 0;; }
+- (NSRange)markedRange { return NSMakeRange(0, markedText.length); }
+- (NSRange)selectedRange { NSRange r = {}; return r; }
+- (void)setMarkedText:(nonnull id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange { }
+- (void)unmarkText { }
+- (nonnull NSArray<NSAttributedStringKey> *)validAttributesForMarkedText { return [NSArray array]; }
+
+// All the code above enables this code to fire. It sends a character per event
+- (void)insertText:(nonnull id)string replacementRange:(NSRange)replacementRange
+{
+    NSString *character;
+
+    // If attributed string, convert to plain string
+    if ([string isKindOfClass:[NSAttributedString class]])
+        character = [string string];
+    else
+        character = (NSString*)string;
+
+    // Now `characters` holds the actual user-typed characters
+    NSData *utf8data = [character dataUsingEncoding:NSUTF8StringEncoding];
+    if (utf8data.length == 0 || utf8data.length > 4) return;
+
+    canopy_event e = {0};
+    e.type = CANOPY_EVENT_TEXT;
+    memcpy(e.text.utf8, utf8data.bytes, utf8data.length);
+    e.text.utf8[utf8data.length] = '\0'; // Null-terminate
+
+    canopy_push_event(e);
+}
 
 //----------------------------------------
 // Standard mouse event handler
@@ -123,6 +165,9 @@ struct canopy_window {
                          scrollY:(float)sy
 {
     NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
+
+    window->mouse_x = pos.x;
+    window->mouse_y = pos.y;
 
     canopy_event e = {
         .type = CANOPY_EVENT_MOUSE,
@@ -211,10 +256,12 @@ struct canopy_window {
     canopy_push_event(e);
 }
 
+//- (void)keyDown:(NSEvent *)event {
+//    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
+//}
 - (void)keyDown:(NSEvent *)event {
-    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
+    [self interpretKeyEvents:@[event]];
 }
-
 - (void)keyUp:(NSEvent *)event {
     [self push_key_event_with_action:CANOPY_KEY_RELEASE event:event];
 }
@@ -647,4 +694,11 @@ void canopy_wait_events_timeout(double timeout_seconds)
             [NSApp updateWindows];
         }
     }
+}
+
+void canopy_get_mouse_pos(canopy_window *window, double *x, double *y)
+{
+    if (!window || !x || !y) return;
+    *x = window->mouse_x;
+    *y = window->mouse_y;
 }

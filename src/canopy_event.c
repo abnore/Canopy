@@ -2,6 +2,7 @@
 
 static canopy_callback_key key_callback = NULL;
 static canopy_callback_mouse mouse_callback = NULL;
+static canopy_callback_text text_callback = NULL;
 
 // FIFO ring buffer
 static canopy_event event_queue[CANOPY_MAX_EVENTS];
@@ -31,6 +32,10 @@ void canopy_dispatch_events(canopy_window *w)
     while (canopy_poll_event(&e)) {
         switch (e.type) {
             case CANOPY_EVENT_NONE: break;
+            case CANOPY_EVENT_TEXT:
+                if (text_callback)
+                    text_callback(w, &e.text);
+                break;
             case CANOPY_EVENT_KEY:
                 if (key_callback)
                     key_callback(w, &e.key);
@@ -42,10 +47,14 @@ void canopy_dispatch_events(canopy_window *w)
         }
     }
 }
+
 void canopy_set_callback_key(canopy_callback_key cb) {
     key_callback = cb;
 }
 
 void canopy_set_callback_mouse( canopy_callback_mouse cb) {
     mouse_callback = cb;
+}
+void canopy_set_callback_text( canopy_callback_text cb) {
+    text_callback = cb;
 }

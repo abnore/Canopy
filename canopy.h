@@ -143,6 +143,7 @@ typedef enum {
     CANOPY_EVENT_NONE,
     CANOPY_EVENT_MOUSE,
     CANOPY_EVENT_KEY,
+    CANOPY_EVENT_TEXT,
 } canopy_event_type;
 
 /// @brief Mouse-specific event actions.
@@ -163,6 +164,10 @@ typedef enum {
     CANOPY_KEY_PRESS,
     CANOPY_KEY_RELEASE
 } canopy_action_key;
+
+typedef struct {
+    char utf8[5]; // Enough for any UTF-8 encoded codepoint
+} canopy_event_text;
 
 /// @brief Mouse event structure.
 typedef struct {
@@ -189,15 +194,21 @@ typedef struct {
     union {
         canopy_event_mouse mouse;
         canopy_event_key key;
+        canopy_event_text text;
     };
 } canopy_event;
+
+/// Getters and Setters for internal events
+void canopy_get_mouse_pos(canopy_window *window, double *x, double *y);
 
 /// Callback functions to handle events
 typedef void (*canopy_callback_key)(canopy_window*, canopy_event_key*);
 typedef void (*canopy_callback_mouse)(canopy_window*, canopy_event_mouse*);
+typedef void (*canopy_callback_text)(canopy_window*, canopy_event_text*);
 
 void canopy_set_callback_key( canopy_callback_key cb);
 void canopy_set_callback_mouse( canopy_callback_mouse cb);
+void canopy_set_callback_text( canopy_callback_text cb);
 
 void canopy_dispatch_events(canopy_window *w);
 /// @brief Poll the next event, if available.
@@ -227,8 +238,6 @@ void canopy_wait_events_timeout(double timeout_seconds);
 
 /// @brief Manually push an event into the queue.
 void canopy_push_event(canopy_event event);
-
-
 
 
 
