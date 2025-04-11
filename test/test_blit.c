@@ -69,8 +69,10 @@ int main(void)
     int ypos = 100;
     int vel_x = 6;
     int vel_y = 4;
+    double mouse_x = 0;
+    double mouse_y = 0;
     canopy_init_timer();
-    canopy_set_fps(60);
+    canopy_set_fps(144);
     //--------------------------------------------------------------------------------------
     int dir = 4;
     ERROR("Testing red error message");
@@ -80,9 +82,28 @@ int main(void)
         // Input
         //----------------------------------------------------------------------------------
         canopy_event event;
-        while (canopy_poll_event(&event)) {
-            if (event.type == CANOPY_EVENT_KEY && event.key.action == CANOPY_KEY_PRESS) {
-                TRACE("Key pressed: %s (code %d)", canopy_key_to_string(event.key.keycode), event.key.keycode);
+        while (canopy_poll_event(&event))
+        {
+            switch(event.type)
+            {
+                case CANOPY_EVENT_KEY:
+                    if (event.key.action == CANOPY_KEY_PRESS) {
+                        TRACE("Key pressed: %s (code %d)", canopy_key_to_string(event.key.keycode), event.key.keycode);
+                    }
+                    if (event.key.keycode == CANOPY_KEY_Q)
+                    {
+                        INFO("Closing the window, because you pressed q");
+                        canopy_set_window_should_close(win);
+                    }
+                    break;
+                case CANOPY_EVENT_MOUSE:
+                    if( event.type == CANOPY_EVENT_MOUSE )
+                    {
+                        mouse_x = event.mouse.x;
+                        mouse_y = event.mouse.y;
+                    }
+                    break;
+                default: break;
             }
         }
         //----------------------------------------------------------------------------------
@@ -108,7 +129,7 @@ int main(void)
             picasso_fill_rect(bf, &rect_blue, BLUE);
             picasso_draw_rect(bf, &rect_red,10, RED);
             picasso_fill_circle(bf,xpos, ypos, 40, YELLOW);
-            picasso_draw_circle(bf, WIDTH/2, HEIGHT/2, 100,5, SET_ALPHA(PINK,50));
+            picasso_draw_circle(bf, mouse_x, mouse_y, 10,5, SET_ALPHA(PINK,90));
             picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 40));
             canopy_swap_backbuffer(win, (framebuffer*)bf);
             canopy_present_buffer(win);

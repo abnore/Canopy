@@ -7,9 +7,6 @@
 #include "logger.h"
 
 
-
-void picasso_image_free(picasso_image *img);
-
 void* picasso_calloc(size_t count, size_t size){
     return calloc(count, size);
 }
@@ -271,7 +268,7 @@ int picasso_save_to_ppm(PPM *image, const char *file_path)
 
 picasso_image *picasso_alloc_image(int width, int height, int channels)
 {
-    if (width <= 0 || height <= 0 || (channels != 3 && channels != 4)) return NULL;
+    if (width <= 0 || height <= 0 || channels < 0 || channels > 4) return NULL;
 
     picasso_image *img = picasso_malloc(sizeof(picasso_image));
     if (!img) return NULL;
@@ -325,6 +322,7 @@ static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_r
         r->x + r->width <= 0 || r->y + r->height <= 0)
         return false;
 
+    // Simple logic to force the rect inside the backbuffer
     db->x0 = (r->x > 0) ? r->x : 0;
     db->y0 = (r->y > 0) ? r->y : 0;
     db->x1 = (r->x + r->width < (int)bf->width) ? r->x + r->width : (int)bf->width;
@@ -335,24 +333,23 @@ static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_r
 
 static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
 {
-    uint8_t sa = (src >> 24) & 0xFF;
+    color back  = u32_to_color(dst);
+    color front = u32_to_color(src);
+
+    uint8_t sa = front.a;
     if (sa == 255) return src;
-    if (sa == 0) return dst;
+    if (sa == 0)   return dst;
 
-    uint8_t sr = src & 0xFF;
-    uint8_t sg = (src >> 8) & 0xFF;
-    uint8_t sb = (src >> 16) & 0xFF;
+    uint8_t r = (front.r * sa + back.r * (255 - sa)) / 255;
+    uint8_t g = (front.g * sa + back.g * (255 - sa)) / 255;
+    uint8_t b = (front.b * sa + back.b * (255 - sa)) / 255;
+    uint8_t a = (front.a * 255 + back.a * (255 - sa)) / 255;
 
-    uint8_t dr = dst & 0xFF;
-    uint8_t dg = (dst >> 8) & 0xFF;
-    uint8_t db = (dst >> 16) & 0xFF;
-
-    uint8_t r = (sr * sa + dr * (255 - sa)) / 255;
-    uint8_t g = (sg * sa + dg * (255 - sa)) / 255;
-    uint8_t b = (sb * sa + db * (255 - sa)) / 255;
-
-    return (0xFF << 24) | (b << 16) | (g << 8) | r;
+    color blended = { r, g, b, a };
+    return color_to_u32(blended);
 }
+
+
 // --------------------------------------------------------
 // Backbuffer operations
 // --------------------------------------------------------
@@ -389,7 +386,9 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf)
     }
     picasso_free(bf);
 }
-picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf)
+
+
+picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf)
 {
     if (!bf || !bf->pixels) return NULL;
 
@@ -398,98 +397,137 @@ picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf)
 
     for (int y = 0; y < (int)bf->height; ++y) {
         for (int x = 0; x < (int)bf->width; ++x) {
-            uint32_t pixel = bf->pixels[y * bf->pitch + x];
-
-            uint8_t r = (pixel >>  0) & 0xFF;
-            uint8_t g = (pixel >>  8) & 0xFF;
-            uint8_t b = (pixel >> 16) & 0xFF;
-            uint8_t a = (pixel >> 24) & 0xFF;
-
-            uint8_t *dst = &img->pixels[ y * img->row_stride + x * img->channels ];
-            dst[0] = r;
-            dst[1] = g;
-            dst[2] = b;
-            dst[3] = a;
+            uint32_t *pixel = picasso__get_pixel_u32(bf, x, y);
+            picasso__put_pixel_u8(img, x, y, pixel);
         }
     }
 
     return img;
 }
 
+//void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y)
+//{
+//    if (!dst || !src || !src->pixels || !dst->pixels) {
+//        //Gracefulle exits - this will most likely be inside a loop, no error reporting
+//        return;
+//    }
+//
+//    foreach_pixel_u8(src, {
+//        int dst_x = x + offset_x;
+//        int dst_y = y + offset_y;
+//        if (dst_x < 0 || dst_x >= (int)dst->width ||
+//            dst_y < 0 || dst_y >= (int)dst->height)
+//            continue;
+//
+//        color c = get_color_u8(pixel, src->channels);
+//        uint32_t rgba = color_to_u32(c);
+//
+//        uint32_t *dst_pixel = picasso__get_pixel_u32(dst, dst_x, dst_y);
+//        *dst_pixel = picasso__blend_pixel(*dst_pixel, rgba);
+//    });
+//}
+
+// “Wait, I can just do this in one clean line now?” ..... Just wrap blit_rect and rename it blit..
 void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y)
 {
-    if (!dst || !src || !src->pixels || !dst->pixels) {
-        //Gracefulle exits - this will most likely be inside a loop, no error reporting
-        return;
-    }
-
-    foreach_pixel_image(src, {
-        int dst_x = x + offset_x;
-        int dst_y = y + offset_y;
-        if (dst_x < 0 || dst_x >= (int)dst->width ||
-            dst_y < 0 || dst_y >= (int)dst->height)
-            continue;
-
-        color c = get_color(pixel, src->channels);
-        uint32_t rgba = color_to_u32(c);
-
-        uint32_t *dst_pixel = &dst->pixels[dst_y * dst->width + dst_x];
-        *dst_pixel = picasso__blend_pixel(*dst_pixel, rgba);
-    });
+    picasso_rect full = { 0, 0, src->width, src->height };
+    picasso_rect at   = { offset_x, offset_y, src->width, src->height };
+    picasso_blit(dst, src, full, at);
 }
 
-void picasso_blit_rect(picasso_backbuffer *dst, picasso_image *src,
-                       picasso_rect src_rect, picasso_rect dst_rect)
+// This became a powerhouse function, handles all blit actions now to the backbuffer
+void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_r, picasso_rect dst_r)
 {
+    // Early sanity checks to bail out early if anything is invalid
     if (!dst || !src || !dst->pixels || !src->pixels) return;
+    if (src_r.width <= 0 || src_r.height <= 0) return;
 
-    picasso__normalize_rect(&src_rect);
-    picasso__normalize_rect(&dst_rect);
+    picasso__normalize_rect(&src_r);
+    picasso__normalize_rect(&dst_r);
+
+    // Clamp src_r to source image bounds (safe blit)
+    if (src_r.x < 0) src_r.x = 0;
+    if (src_r.y < 0) src_r.y = 0;
+    // if you draw at an x value, this compensates from the width so the total
+    // width never exceed actual image width - same for y below
+    if (src_r.x + src_r.width > src->width) {
+        src_r.width = src->width - src_r.x;
+    }
+    if (src_r.y + src_r.height > src->height) {
+        src_r.height = src->height - src_r.y;
+    }
 
     // Bounds of the destination
     picasso_draw_bounds bounds;
-    if (!picasso__clip_rect_to_bounds(dst, &dst_rect, &bounds))
-        return;
+    if (!picasso__clip_rect_to_bounds(dst, &dst_r, &bounds)) return;
 
-    float scale_x = (float)src_rect.width  / dst_rect.width;
-    float scale_y = (float)src_rect.height / dst_rect.height;
+    // Extracting the scaling factor, how fast we sample from the src to the dst. Maybe 2 pixels per pixel
+    float scale_x = (float)src_r.width  / dst_r.width;
+    float scale_y = (float)src_r.height / dst_r.height;
 
-    for (int dy = bounds.y0; dy < bounds.y1; ++dy) {
-        int rel_dy = dy - dst_rect.y;
-        int sy = src_rect.y + (int)(rel_dy * scale_y);
-        if (sy < 0 || sy >= src->height) continue;
 
-        for (int dx = bounds.x0; dx < bounds.x1; ++dx) {
-            int rel_dx = dx - dst_rect.x;
-            int sx = src_rect.x + (int)(rel_dx * scale_x);
-            if (sx < 0 || sx >= src->width) continue;
+    // For every row of destination (dy) and dest col (dx)
+    for (int dst_y = bounds.y0; dst_y < bounds.y1; ++dst_y)
+    {
+        int relative_dst_y = dst_y - dst_r.y;
+        int src_y = src_r.y + (int)(relative_dst_y * scale_y);
 
-            uint8_t *src_pixel = &src->pixels[sy * src->row_stride + sx * src->channels];
-            color c = get_color(src_pixel, src->channels);
+        if( src_y < 0 || src_y >= src->height ) continue;
+
+        for (int dst_x = bounds.x0; dst_x < bounds.x1; ++dst_x)
+        {
+            int relative_dst_x = dst_x - dst_r.x;
+            int src_x = src_r.x + (int)(relative_dst_x * scale_x);
+
+            if( src_x < 0 || src_x >= src->width ) continue;
+
+            uint8_t  *src_pixel = picasso__get_pixel_u8(src, src_x, src_y);
+            uint32_t *dst_pixel = picasso__get_pixel_u32(dst, dst_x, dst_y);
+
+            color c = get_color_u8(src_pixel, src->channels);
             uint32_t rgba = color_to_u32(c);
-            dst->pixels[dy * dst->width + dx] = picasso__blend_pixel(
-                                                    dst->pixels[dy * dst->width + dx],
-                                                    rgba);
+
+            *dst_pixel = picasso__blend_pixel(*dst_pixel, rgba);
         }
     }
 }
-
+// get_color takes into account channels of src, color is always 4 channel valid
 void picasso_copy(picasso_image *src, picasso_image *dst)
 {
     for (int y = 0; y < dst->height; ++y) {
         for (int x = 0; x < dst->width; ++x) {
-
             size_t nx = x * src->width / dst->width;
             size_t ny = y * src->height / dst->height;
 
-            uint8_t *dst_pixel = &dst->pixels[y * dst->row_stride + x * dst->channels];
-            uint8_t *src_pixel = &src->pixels[ny * src->row_stride + nx * src->channels];
+            uint8_t *dst_pixel = picasso__get_pixel_u8(dst, x, y);
+            uint8_t *src_pixel = picasso__get_pixel_u8(src, nx, ny);
 
-            for (int c = 0; c < dst->channels; ++c)
-                dst_pixel[c] = src_pixel[c];
+            color c = get_color_u8(src_pixel, src->channels);
+
+            switch (dst->channels) {
+                case 1:
+                    dst_pixel[0] = (76 * c.r + 150 * c.g + 29 * c.b) >> 8;
+                    break;
+                case 2:
+                    dst_pixel[0] = (76 * c.r + 150 * c.g + 29 * c.b) >> 8;
+                    dst_pixel[1] = c.a;
+                    break;
+                case 3:
+                    dst_pixel[0] = c.r;
+                    dst_pixel[1] = c.g;
+                    dst_pixel[2] = c.b;
+                    break;
+                case 4:
+                    dst_pixel[0] = c.r;
+                    dst_pixel[1] = c.g;
+                    dst_pixel[2] = c.b;
+                    dst_pixel[3] = c.a;
+                    break;
+            }
         }
     }
 }
+
 void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
 {
     if (!bf) return NULL;
@@ -522,13 +560,21 @@ void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c)
 
     for (int y = bounds.y0; y < bounds.y1; ++y) {
         for (int x = bounds.x0; x < bounds.x1; ++x) {
-            uint32_t *cur_pixel = &bf->pixels[y * bf->width + x];
+            uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
             *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
         }
     }
 }
 
-/* This approach might be slightly wasteful, but it works! */
+
+/*
+ * FIX: This approach might be slightly wasteful, but it works!
+ * I calculate the whole rectangle and set outer bounds, and then i calculate an inner
+ * rectangle which is the thickness less in - i then set that to be skipped.
+ * So in practive i am going over every pixel of the larger rect, and skipping the inside
+ *
+ * I might be able to do a 4-slice instead
+ * */
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c)
 {
     if (!outer || !bf || thickness <= 0) return;
@@ -550,6 +596,7 @@ void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thicknes
     // Clip to draw bounds
     if (!picasso__clip_rect_to_bounds(bf, outer, &outer_bounds)) return;
 
+    // if inner bounds doesnt make sense we just null it out making it a full rect
     if (!picasso__clip_rect_to_bounds(bf, &inner, &inner_bounds)) {
         inner_bounds = (picasso_draw_bounds){0};
     }
@@ -559,14 +606,12 @@ void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thicknes
     for (int y = outer_bounds.y0; y < outer_bounds.y1; ++y) {
         for (int x = outer_bounds.x0; x < outer_bounds.x1; ++x) {
 
-            bool inside_inner = (
-                    y >= inner_bounds.y0 && y < inner_bounds.y1 &&
-                    x >= inner_bounds.x0 && x < inner_bounds.x1
-                    );
+            bool inside_inner = ( y >= inner_bounds.y0 && y < inner_bounds.y1 &&
+                                  x >= inner_bounds.x0 && x < inner_bounds.x1 );
 
             if (inside_inner) continue;
             else {
-                uint32_t *cur_pixel = &bf->pixels[y * bf->width + x];
+                uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
                 *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
             }
         }
@@ -602,13 +647,15 @@ void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, col
         for (int x = bounds.x0; x < bounds.x1; ++x) {
             int dx = x - x0;
             int dy = y - y0;
-            if((dx*dx + dy*dy <= radius*radius + radius)){
-                uint32_t *cur_pixel = &bf->pixels[y * bf->width + x];
+            if( (dx*dx + dy*dy <= radius*radius + radius) )
+            {
+                uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
                 *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
             }
         }
     }
 }
+
 void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c)
 {
     picasso_draw_bounds bounds = {0};
@@ -627,7 +674,7 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int 
             int dist2 = dx * dx + dy * dy;
 
             if (dist2 >= inner+radius && dist2 <= outer+radius) {
-                uint32_t *cur_pixel = &bf->pixels[y * bf->width + x];
+                uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
                 *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
             }
         }

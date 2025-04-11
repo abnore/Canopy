@@ -95,8 +95,11 @@ void canopy_free_window(canopy_window* w);
 /// @param[in] filepath Path to an image file to use as the application icon.
 void canopy_set_icon(const char* filepath);
 bool canopy_is_window_opaque(canopy_window *win);
-void canopy_set_window_transparent(canopy_window *win, bool enable);
+void canopy_set_window_transparent(canopy_window *w, bool enable);
 
+/// @brief Send a request to close the window
+/// @param[in] w The window to query.
+void canopy_set_window_should_close(canopy_window *w);
 /// @brief Checks if the window should close (user clicked the close button).
 /// @param[in] w The window to query.
 /// @return true if the window should close, false otherwise.
@@ -123,8 +126,8 @@ void canopy_present_buffer(canopy_window* w);
 
 /// @brief Swaps a custom backbuffer into the window's framebuffer.
 /// @param[in,out] w The target window.
-/// @param[in,out] backbuffer The backbuffer to swap. Contents may be overwritten.
-void canopy_swap_backbuffer(canopy_window* w, framebuffer* backbuffer);
+/// @param[in,out] bf The backbuffer to swap. Contents may be overwritten.
+void canopy_swap_backbuffer(canopy_window* w, framebuffer* bf);
 /// @}
 
 
@@ -152,43 +155,51 @@ typedef enum {
     CANOPY_MOUSE_SCROLL,
     CANOPY_MOUSE_ENTER,
     CANOPY_MOUSE_EXIT
-} canopy_mouse_action;
+} canopy_action_mouse;
 
 /// @brief Key-specific event actions.
 typedef enum {
     CANOPY_KEY_NONE,
     CANOPY_KEY_PRESS,
     CANOPY_KEY_RELEASE
-} canopy_key_action;
+} canopy_action_key;
 
 /// @brief Mouse event structure.
 typedef struct {
-    canopy_mouse_action action;
+    canopy_action_mouse action;
     int x, y;
     mouse_buttons button;
     int modifiers;
     int click_count;
     float scroll_x;
     float scroll_y;
-} canopy_mouse_event;
+} canopy_event_mouse;
 
 /// @brief Keyboard event structure.
 typedef struct {
-    canopy_key_action action;
+    canopy_action_key action;
     keys keycode;
     int modifiers;
     int is_repeat;
-} canopy_key_event;
+} canopy_event_key;
 
 /// @brief Generic event union.
 typedef struct {
     canopy_event_type type;
     union {
-        canopy_mouse_event mouse;
-        canopy_key_event key;
+        canopy_event_mouse mouse;
+        canopy_event_key key;
     };
 } canopy_event;
 
+/// Callback functions to handle events
+typedef void (*canopy_callback_key)(canopy_window*, canopy_event_key*);
+typedef void (*canopy_callback_mouse)(canopy_window*, canopy_event_mouse*);
+
+void canopy_set_callback_key( canopy_callback_key cb);
+void canopy_set_callback_mouse( canopy_callback_mouse cb);
+
+void canopy_dispatch_events(canopy_window *w);
 /// @brief Poll the next event, if available.
 /// @param[out] out_event Pointer to a canopy_event struct to fill.
 /// @return true if an event was available and written to out_event, false otherwise.
@@ -216,65 +227,6 @@ void canopy_wait_events_timeout(double timeout_seconds);
 
 /// @brief Manually push an event into the queue.
 void canopy_push_event(canopy_event event);
-
-
-
-
-
-/*******************************************************************************/
-/// @name (Optional) Window & Input Utilities
-/// @{
-
-/// @brief Get the current window position.
-/// @param window The window to query.
-/// @param[out] pos_x Pointer to store the X position.
-/// @param[out] pos_y Pointer to store the Y position.
-/// @todo Implement platform-specific retrieval of window position.
-void canopy_get_window_pos(canopy_window* window, int* pos_x, int* pos_y);
-
-/// @brief Set the position of the window.
-/// @param window The window to move.
-/// @param pos_x New X position.
-/// @param pos_y New Y position.
-/// @todo Implement platform-specific window positioning.
-void canopy_set_window_pos(canopy_window* window, int pos_x, int pos_y);
-
-/// @brief Get the name of a key given its key code and scancode.
-/// @param key The internal key enum.
-/// @param scancode The system-specific scancode.
-/// @return A string representing the key name.
-/// @todo Map key codes to human-readable names.
-const char* canopy_get_key_name(int key, int scancode);
-
-/// @brief Get the platform-specific scancode for a key.
-/// @param key The internal key enum.
-/// @return The system-specific scancode.
-/// @todo Implement scancode resolution for keys.
-int canopy_get_key_scancode(int key);
-
-/// @brief Get the current state of a key (pressed or not).
-/// @param window The window context.
-/// @param key The internal key enum.
-/// @return 1 if pressed, 0 otherwise.
-/// @todo Implement key state tracking.
-int canopy_get_key(canopy_window* window, int key);
-
-/// @brief Get the state of a mouse button.
-/// @param window The window context.
-/// @param button The mouse button enum.
-/// @return 1 if pressed, 0 otherwise.
-/// @todo Implement mouse button state tracking.
-int canopy_get_mouse_button(canopy_window* window, int button);
-
-/// @brief Get the current position of the mouse cursor.
-/// @param window The window context.
-/// @param[out] pos_x Pointer to store the X position.
-/// @param[out] pos_y Pointer to store the Y position.
-/// @todo Track or query the cursor position from the platform.
-void canopy_get_cursor_pos(canopy_window* window, double* pos_x, double* pos_y);
-
-/// @}
-
 
 
 

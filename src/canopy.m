@@ -117,7 +117,7 @@ struct canopy_window {
 // Standard mouse event handler
 // so that i can add as many as i want later
 //----------------------------------------
-- (void)push_mouse_event_with_action:(canopy_mouse_action)action
+- (void)push_mouse_event_with_action:(canopy_action_mouse)action
                            event:(NSEvent *)event
                          scrollX:(float)sx
                          scrollY:(float)sy
@@ -199,7 +199,7 @@ struct canopy_window {
 }
 
 /* ------------- Key events -------------- */
-- (void)push_key_event_with_action:(canopy_key_action)action event:(NSEvent *)event {
+- (void)push_key_event_with_action:(canopy_action_key)action event:(NSEvent *)event {
     canopy_event e = {
         .type = CANOPY_EVENT_KEY,
         .key.action = action,
@@ -218,6 +218,30 @@ struct canopy_window {
 - (void)keyUp:(NSEvent *)event {
     [self push_key_event_with_action:CANOPY_KEY_RELEASE event:event];
 }
+
+- (void)flagsChanged:(NSEvent *)event {
+    static NSEventModifierFlags prevFlags = 0;
+    NSEventModifierFlags newFlags = [event modifierFlags];
+    NSEventModifierFlags changed = prevFlags ^ newFlags;
+
+    int keycode = (int)[event keyCode];
+    canopy_action_key action = (newFlags & changed) ? CANOPY_KEY_PRESS : CANOPY_KEY_RELEASE;
+
+    // Filter out bogus values
+    if (changed == 0) return;
+
+    canopy_event e = {
+        .type = CANOPY_EVENT_KEY,
+        .key.action = action,
+        .key.keycode = keycode,
+        .key.modifiers = (int)newFlags,
+        .key.is_repeat = 0
+    };
+
+    canopy_push_event(e);
+    prevFlags = newFlags;
+}
+
 @end
 
 //----------------------------------------
@@ -352,13 +376,14 @@ canopy_window* canopy_create_window(const char* title,
         [win->window setContentView: win->view];
         [win->window makeKeyAndOrderFront:nil];
         [win->window setAcceptsMouseMovedEvents: YES];
-        [win->window makeFirstResponder: win->view];
+
 
         [win->view setWantsLayer: YES];
         // default opaque, can be set manually
         //[win->view setOpaque: YES];
         win->is_opaque = true;
         //[[win->view layer] setOpaque:YES]; // ensures the layer also is opaque - not needed
+
         // Properly handle content scaling for fidelity display (i.e. retina display)
         // INFO: Not supported yet, need to port this to every graphical section
         NSView *view = (NSView *)win->view;
@@ -368,6 +393,7 @@ canopy_window* canopy_create_window(const char* title,
 
         canopy_init_framebuffer(win);
 
+        [win->window makeFirstResponder: win->view];
         win->should_close = false;
 
         INFO("Created window: \"%s\" (%dx%d)", title, width, height);
@@ -456,6 +482,10 @@ void canopy_free_window(canopy_window* win)
     canopy_free(win);
 }
 
+void canopy_set_window_should_close(canopy_window *window)
+{
+    window->should_close = true;
+}
 
 bool canopy_window_should_close(canopy_window *window)
 {

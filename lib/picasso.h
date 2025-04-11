@@ -16,6 +16,11 @@ typedef struct {
 } picasso_image;
 
 typedef struct {
+    uint32_t* pixels;
+    uint32_t width, height, pitch;
+} picasso_backbuffer;
+
+typedef struct {
     uint8_t r;
     uint8_t g;
     uint8_t b;
@@ -26,25 +31,143 @@ typedef struct {
     int x, y, width, height; // supporting negative values
 } picasso_rect;
 
-void picasso_copy(picasso_image *src, picasso_image *dst);
-/* -------------------- Custom Allocators -------------------- */
-void* picasso_calloc(size_t count, size_t size);
-void picasso_free(void *ptr);
-void *picasso_malloc(size_t size);
-void * picasso_realloc(void *ptr, size_t size);
 
-/* --------- Binary Readers little endian utilities ----------- */
-uint8_t picasso_read_u8(const uint8_t *p);
-uint16_t picasso_read_u16_le(const uint8_t *p);
-uint32_t picasso_read_u32_le(const uint8_t *p);
-int32_t  picasso_read_s32_le(const uint8_t *p);
+typedef struct {
+    int x0, y0, x1, y1;
+} picasso_draw_bounds;
 
-/* -------------------- File Support -------------------- */
-void *picasso_read_entire_file(const char *path, size_t *out_size);
-int picasso_write_file(const char *path, const void *data, size_t size);
+/* -------------------- Utility macros -------------------- */
+#define PICASSO_CIRCLE_DEFAULT_TOLERANCE 2
+#define PICASSO_MAX_DIM 1<<14 // 16,384X16,384 *4 is over 1GB - that is enough
 
-void picasso_free_image(picasso_image *img);
-picasso_image *picasso_alloc_image(int width, int height, int channels);
+#define PICASSO_ABS(a)     ({ __typeof__(a) _a = (a); _a > 0 ? _a : -_a; })
+#define PICASSO_MAX(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a > _b ? _a : _b; })
+#define PICASSO_MIN(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a : _b; })
+#define PICASSO_SWAP(a,b)  ({ __typeof__(a) _a = (a); (a) = (b); (b) = _a;})
+#define PICASSO_CLAMP(x, lo, hi) ({          \
+    __typeof__(x) _x = (x);                  \
+    __typeof__(lo) _lo = (lo);               \
+    __typeof__(hi) _hi = (hi);               \
+    _x < _lo ? _lo : (_x > _hi ? _hi : _x);  \
+})
+static inline uint8_t *picasso__get_pixel_u8(picasso_image *img, int x, int y)
+{
+    return &img->pixels[y * img->row_stride + x * img->channels];
+}
+// Goes over every pixel and lets you define a function body, where
+// you can manipulate each pixel individually
+#define foreach_pixel_u8(img, body) do {                         \
+    for (int _y = 0; _y < (img)->height; ++_y) {                 \
+        for (int _x = 0; _x < (img)->width; ++_x) {              \
+            uint8_t *pixel = picasso__get_pixel_u8(img, _x, _y); \
+            do { body } while (0);                               \
+        }}} while (0)
+
+#define color_to_u32(c) (((uint32_t)(c).a << 24) |      \
+                         ((uint32_t)(c).b << 16) |      \
+                         ((uint32_t)(c).g << 8)  |      \
+                         ((uint32_t)(c).r))
+
+#define u32_to_color(val) ((color){                     \
+    .a = (uint8_t)(((val) >> 24) & 0xFF),               \
+    .b = (uint8_t)(((val) >> 16) & 0xFF),               \
+    .g = (uint8_t)(((val) >> 8) & 0xFF),                \
+    .r = (uint8_t)((val) & 0xFF)                        \
+})
+
+
+static inline void picasso__put_pixel_u8(picasso_image *img, int x, int y, uint32_t *pixel)
+{
+    color p = u32_to_color(*pixel);
+    uint8_t *dst_pixel = picasso__get_pixel_u8(img, x, y);
+    dst_pixel[0] = p.r;
+    dst_pixel[1] = p.g;
+    dst_pixel[2] = p.b;
+    if (img->channels == 4)
+        dst_pixel[3] = p.a;
+}
+static inline uint32_t *picasso__get_pixel_u32(picasso_backbuffer *bf, int x, int y)
+{
+    return &bf->pixels[y * bf->width + x];
+}
+
+static inline color get_color_u8(const uint8_t* pixel, int channels)
+{
+    color c = {0};
+
+    if (channels == 1) {
+        c.r = c.g = c.b = pixel[0];
+        c.a = 255;
+    } else if (channels == 2) {
+        c.r = c.g = c.b = pixel[0];
+        c.a = pixel[1];
+    } else if (channels == 3) {
+        c.r = pixel[0];
+        c.g = pixel[1];
+        c.b = pixel[2];
+        c.a = 255;
+    } else if (channels == 4) {
+        c.r = pixel[0];
+        c.g = pixel[1];
+        c.b = pixel[2];
+        c.a = pixel[3];
+    }
+
+    return c;
+}
+
+static inline void unpack_rbga(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
+{
+    *r = (pixel >> 0) & 0xFF;
+    *g = (pixel >> 8) & 0xFF;
+    *b = (pixel >> 16) & 0xFF;
+    *a = (pixel >> 24) & 0xFF;
+}
+
+static inline void unpack_bgra(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
+{
+    *b = (pixel >> 0) & 0xFF;
+    *g = (pixel >> 8) & 0xFF;
+    *r = (pixel >> 16) & 0xFF;
+    *a = (pixel >> 24) & 0xFF;
+}
+
+/* -------------------- Color Section -------------------- */
+const char* color_to_string(color c);
+
+// Set alpha value in percent, where 0 is transparent and 100 is fully opaque
+#define SET_ALPHA(c, percent)   ((color){(c).r,(c).g, (c).b, \
+                                (uint8_t)(((percent)*255)/100) })
+// https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
+// RGBA layout expected by Cocoa and NSBitmapImageRep
+// Primary Colors              .r    .g    .b    .a
+#define BLUE         ((color){0x0C, 0x10, 0x89, 0xFF}) // 000F89 Phthalo Blue
+#define GREEN        ((color){0x31, 0x85, 0x20, 0xFF}) // 318520 Medium Spring Green
+#define RED          ((color){0xCC, 0x00, 0x03, 0xFF}) // CC0003 Corso Red
+
+// Grayscale
+#define WHITE        ((color){0xFF, 0xFF, 0xFF, 0xFF}) // max white
+#define BLACK        ((color){0x00, 0x00, 0x00, 0xFF}) // opaque black
+#define GRAY         ((color){0x30, 0x30, 0x30, 0xFF})
+#define LIGHT_GRAY   ((color){0x80, 0x80, 0x80, 0xFF})
+#define DARK_GRAY    ((color){0x20, 0x20, 0x20, 0xFF})
+
+// Warm Tones
+#define ORANGE       ((color){0xFF, 0x80, 0x00, 0xFF})  // R: 255, G: 128, B: 0
+#define YELLOW       ((color){0xF6, 0xDB, 0x0E, 0xFF})  // F6DB0E Candlelight
+#define BROWN        ((color){0x80, 0x60, 0x20, 0xFF})  // R: 128, G: 96, B: 32
+#define GOLD         ((color){0xFF, 0xD7, 0x00, 0xFF})  // R: 255, G: 215, B: 0
+
+// Cool Tones
+#define PINK         ((color){0xCE, 0x7A, 0xDF, 0xFF}) // CE7ADF Orchid
+#define CYAN         ((color){0x00, 0xFF, 0xFF, 0xFF})  // R: 0, G: 255, B: 255
+#define MAGENTA      ((color){0xFF, 0x00, 0xFF, 0xFF})  // R: 255, G: 0, B: 255
+#define PURPLE       ((color){0x80, 0x00, 0x80, 0xFF})  // R: 128, G: 0, B: 128
+#define NAVY         ((color){0x00, 0x00, 0x80, 0xFF})  // R: 0, G: 0, B: 128
+#define TEAL         ((color){0x00, 0x80, 0x80, 0xFF})  // R: 0, G: 128, B: 128
+
+// Background color - for now dark gray to fit dark mode - change if you want
+#define CLEAR_BACKGROUND DARK_GRAY// dark mode background
 
 /* -------------------- ICC Profile Support -------------------- */
 typedef enum {
@@ -65,117 +188,51 @@ typedef enum {
     PICASSO_PROFILE_SRGB,
 } picasso_icc_profile;
 
-/* -------------------- Utility macros -------------------- */
+/* -------------------- Custom Allocators -------------------- */
+void* picasso_calloc(size_t count, size_t size);
+void picasso_free(void *ptr);
+void *picasso_malloc(size_t size);
+void * picasso_realloc(void *ptr, size_t size);
 
-#define PICASSO_ABS(a)     ({ __typeof__(a) _a = (a); _a > 0 ? _a : -_a; })
-#define PICASSO_MAX(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a > _b ? _a : _b; })
-#define PICASSO_MIN(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a : _b; })
-#define PICASSO_SWAP(a,b)  ({ __typeof__(a) _a = (a); (a) = (b); (b) = _a;})
-#define PICASSO_CLAMP(x, lo, hi) ({          \
-    __typeof__(x) _x = (x);                  \
-    __typeof__(lo) _lo = (lo);               \
-    __typeof__(hi) _hi = (hi);               \
-    _x < _lo ? _lo : (_x > _hi ? _hi : _x);  \
-})
-// Goes over every pixel and lets you define a function body, where
-// you can manipulate each pixel individually
-#define foreach_pixel_image(img, body) do {                       \
-    for (int y = 0; y < (img)->height; ++y) {                     \
-        for (int x = 0; x < (img)->width; ++x) {                  \
-            uint8_t *pixel = &(img)->pixels[y * (img)->row_stride + x * (img)->channels]; \
-            do { body } while (0);                                \
-        }}} while (0)
+/* --------- Binary Readers little endian utilities ----------- */
+uint8_t picasso_read_u8(const uint8_t *p);
+uint16_t picasso_read_u16_le(const uint8_t *p);
+uint32_t picasso_read_u32_le(const uint8_t *p);
+int32_t  picasso_read_s32_le(const uint8_t *p);
 
-static inline color get_color(const uint8_t* pixel, int channels)
-{
-    color c = {0};
+/* -------------------- File Support -------------------- */
+void *picasso_read_entire_file(const char *path, size_t *out_size);
+int picasso_write_file(const char *path, const void *data, size_t size);
 
-    c.r = pixel[0];
-    c.g = pixel[1];
-    c.b = pixel[2];
-
-    if (channels == 4) c.a = pixel[3];
-    else c.a = 255;
-
-    return c;
-}
-
-// Set alpha value in percent, where 0 is transparent and 100 is fully opaque
-#define SET_ALPHA(c, percent)   ((color){(c).r,(c).g, (c).b, \
-                                (uint8_t)(((percent)*255)/100) })
-#define GET_RED(c)   ((uint8_t)(c).r)
-#define GET_GREEN(c) ((uint8_t)(c).g)
-#define GET_BLUE(c)  ((uint8_t)(c).b)
-#define GET_ALPHA(c) ((uint8_t)(c).a)
-
-#define PICASSO_CIRCLE_DEFAULT_TOLERANCE 2
-/* -------------------- Color Section -------------------- */
+picasso_image *picasso_alloc_image(int width, int height, int channels);
+void picasso_free_image(picasso_image *img);
 
 
-// https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
-// RGBA layout expected by Cocoa and NSBitmapImageRep
-// Primary Colors              .r    .g    .b    .a
-#define BLUE         ((color){0x0C, 0x10, 0x89, 0xFF}) // 000F89 Phthalo Blue
-#define GREEN        ((color){0x31, 0x85, 0x20, 0xFF}) // 318520 Medium Spring Green
-#define RED          ((color){0xCC, 0x00, 0x03, 0xFF}) // CC0003 Corso Red
+/* -------------------- Backbuffer Section -------------------- */
 
-#define PINK         ((color){0xCE, 0x7A, 0xDF, 0xFF}) // CE7ADF Orchid
-// Grayscale
-#define WHITE        ((color){0xFF, 0xFF, 0xFF, 0xFF}) // max white
-#define BLACK        ((color){0x00, 0x00, 0x00, 0xFF}) // opaque black
-#define GRAY         ((color){0x30, 0x30, 0x30, 0xFF})
-#define LIGHT_GRAY   ((color){0x80, 0x80, 0x80, 0xFF})
-#define DARK_GRAY    ((color){0x20, 0x20, 0x20, 0xFF})
+picasso_backbuffer* picasso_create_backbuffer(int width, int height);
+void picasso_destroy_backbuffer(picasso_backbuffer *bf);
+picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf);
+void picasso_clear_backbuffer(picasso_backbuffer *bf);
 
-// Warm Tones
-#define ORANGE       ((color){0xFF, 0x80, 0x00, 0xFF})  // R: 255, G: 128, B: 0
-#define YELLOW       ((color){0xF6, 0xDB, 0x0E, 0xFF})  // F6DB0E Candlelight
-#define BROWN        ((color){0x80, 0x60, 0x20, 0xFF})  // R: 128, G: 96, B: 32
-#define GOLD         ((color){0xFF, 0xD7, 0x00, 0xFF})  // R: 255, G: 215, B: 0
+/// @brief Draws a region from a source image into a destination backbuffer.
+///        Handles cropping, scaling, and blending.
+///        This is the core pixel blitter in Picasso.
+void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_rect, picasso_rect dst_rect);
+void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y);
+void* picasso_backbuffer_pixels(picasso_backbuffer *bf);
 
-// Cool Tones
-#define CYAN         ((color){0x00, 0xFF, 0xFF, 0xFF})  // R: 0, G: 255, B: 255
-#define MAGENTA      ((color){0xFF, 0x00, 0xFF, 0xFF})  // R: 255, G: 0, B: 255
-#define PURPLE       ((color){0x80, 0x00, 0x80, 0xFF})  // R: 128, G: 0, B: 128
-#define NAVY         ((color){0x00, 0x00, 0x80, 0xFF})  // R: 0, G: 0, B: 128
-#define TEAL         ((color){0x00, 0x80, 0x80, 0xFF})  // R: 0, G: 128, B: 128
+/* -------------------- Graphical Raster Section -------------------- */
 
-// Background color - for now dark gray to fit dark mode - change if you want
-#define CLEAR_BACKGROUND DARK_GRAY// dark mode background
 
-#define color_to_u32(c) (((uint32_t)(c).a << 24) |      \
-                         ((uint32_t)(c).b << 16) |      \
-                         ((uint32_t)(c).g << 8)  |      \
-                         ((uint32_t)(c).r))
+void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
+void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c);
+void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
+void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c);
+void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c);
+void picasso_copy(picasso_image *src, picasso_image *dst);
 
-#define u32_to_color(val) ((color){                     \
-    .a = (uint8_t)(((val) >> 24) & 0xFF),               \
-    .b = (uint8_t)(((val) >> 16) & 0xFF),               \
-    .g = (uint8_t)(((val) >> 8) & 0xFF),                \
-    .r = (uint8_t)((val) & 0xFF)                        \
-})
-
-const char* color_to_string(color c);
-
-static inline void unpack_rbga(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
-{
-    *r = (pixel >> 0) & 0xFF;
-    *g = (pixel >> 8) & 0xFF;
-    *b = (pixel >> 16) & 0xFF;
-    *a = (pixel >> 24) & 0xFF;
-}
-
-static inline void unpack_bgra(uint32_t pixel, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
-{
-    *b = (pixel >> 0) & 0xFF;
-    *g = (pixel >> 8) & 0xFF;
-    *r = (pixel >> 16) & 0xFF;
-    *a = (pixel >> 24) & 0xFF;
-}
 /* -------------------- Format Section -------------------- */
-
-#define PICASSO_MAX_DIM 1<<14 // 16,384X16,384 *4 is over 1GB - that is enough
-
 // Define BMP file header structures
 #pragma pack(push,1) //https://www.ibm.com/docs/no/zos/2.4.0?topic=descriptions-pragma-pack
 
@@ -241,12 +298,10 @@ typedef struct {
 
 #pragma pack(pop)
 
-
-picasso_image *picasso_alloc_image(int width, int height, int channels);
 /// @brief BMP functions
 picasso_image *picasso_load_bmp(const char *filename);
 int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile profile);
-bmp *picasso_create_bmp_from_rgba(const uint8_t *pixel_data, int width, int height, int channels);
+bmp *picasso_create_bmp_from_rgba(uint8_t *pixel_data, int width, int height, int channels);
 int picasso_save_rgba_to_bmp(const char *file_path, int width, int height, int channels, const uint8_t *pixels, picasso_icc_profile profile);
 
 /// @brief PPM functions
@@ -254,33 +309,9 @@ PPM *picasso_load_ppm(const char *filename);
 int picasso_save_to_ppm(PPM *image, const char *file_path);
 
 
-/* -------------------- Backbuffer Section -------------------- */
 
-typedef struct {
-    uint32_t* pixels;
-    uint32_t width, height, pitch;
-} picasso_backbuffer;
 
-picasso_backbuffer* picasso_create_backbuffer(int width, int height);
-void picasso_destroy_backbuffer(picasso_backbuffer *bf);
-picasso_image *picasso_image_from_backbuffer(const picasso_backbuffer *bf);
-void picasso_clear_backbuffer(picasso_backbuffer *bf);
-void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y);
-void picasso_blit_rect(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_rect, picasso_rect dst_rect);
-void* picasso_backbuffer_pixels(picasso_backbuffer *bf);
 
-/* -------------------- Graphical Raster Section -------------------- */
 
-typedef struct {
-    int x0, y0, x1, y1;
-} picasso_draw_bounds;
-
-void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
-void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c);
-
-void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
-
-void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c);
-void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c);
 
 #endif // PICASSO_H
