@@ -65,8 +65,7 @@ static const char *get_program_name(void) {
 
 // Initializes the logger system.
 // Only runs once safely even across threads.
-
-log_type init_log(bool generate_log, bool enable_colors, bool silence_stderr)
+log_type init_log(log_mode enable_log, color_mode enable_colors, stderr_mode stderr_behavior)
 {
     pthread_mutex_lock(&logger_mutex);
 
@@ -77,11 +76,11 @@ log_type init_log(bool generate_log, bool enable_colors, bool silence_stderr)
     }
     logger_initialized = true;
 
-    if (generate_log || silence_stderr) {
+    if (enable_log || stderr_behavior) {
         mkdir(log_dir, 0755);  // safe even if already exists
     }
 
-    if (silence_stderr) {
+    if (stderr_behavior) {
         char err_path[256];
         snprintf(err_path, sizeof(err_path), "%s/error-", log_dir);
         size_t len = strlen(err_path);
@@ -95,7 +94,7 @@ log_type init_log(bool generate_log, bool enable_colors, bool silence_stderr)
     log_output_stream = NULL;
     log_color_auto = true;
 
-    if (!generate_log) {
+    if (!enable_log) {
         log_output_stream = stdout;
         log_colors_enabled = enable_colors && isatty(fileno(stdout));
         pthread_mutex_unlock(&logger_mutex);

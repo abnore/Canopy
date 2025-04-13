@@ -31,6 +31,21 @@ typedef struct {
     int x, y, width, height; // supporting negative values
 } picasso_rect;
 
+typedef struct {
+    int x;
+    int y;
+} picasso_point;
+
+typedef struct {
+    int x1, x2;
+    int y1, y2;
+} picasso_point2;
+
+typedef struct {
+    int x1, y1;
+    int x2, y2;
+    int x3, y3;
+} picasso_point3;
 
 typedef struct {
     int x0, y0, x1, y1;
@@ -44,6 +59,8 @@ typedef struct {
 #define PICASSO_MAX(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a > _b ? _a : _b; })
 #define PICASSO_MIN(a,b)   ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a : _b; })
 #define PICASSO_SWAP(a,b)  ({ __typeof__(a) _a = (a); (a) = (b); (b) = _a;})
+#define PICASSO_MIN3(a,b,c) (PICASSO_MIN((a),PICASSO_MIN((b),(c))))
+#define PICASSO_MAX3(a,b,c) (PICASSO_MAX((a),PICASSO_MAX((b),(c))))
 #define PICASSO_CLAMP(x, lo, hi) ({          \
     __typeof__(x) _x = (x);                  \
     __typeof__(lo) _lo = (lo);               \
@@ -228,8 +245,13 @@ void* picasso_backbuffer_pixels(picasso_backbuffer *bf);
 void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c);
 void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
+void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, float y1, color c);
+void picasso_draw_circle_aa(picasso_backbuffer *bf, int cx, int cy, int r, color c);
+void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, color c);
 void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c);
 void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c);
+void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 p, color c);
+void picasso_draw_triangle_aa(picasso_backbuffer *bf, picasso_point3 pts, color fill_color, color edge_color);
 void picasso_copy(picasso_image *src, picasso_image *dst);
 
 /* -------------------- Format Section -------------------- */
@@ -302,7 +324,6 @@ typedef struct {
 picasso_image *picasso_load_bmp(const char *filename);
 int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile profile);
 bmp *picasso_create_bmp_from_rgba(uint8_t *pixel_data, int width, int height, int channels);
-int picasso_save_rgba_to_bmp(const char *file_path, int width, int height, int channels, const uint8_t *pixels, picasso_icc_profile profile);
 
 /// @brief PPM functions
 PPM *picasso_load_ppm(const char *filename);

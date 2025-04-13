@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 #include "picasso.h"
 #include "logger.h"
@@ -680,22 +681,224 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int 
         }
     }
 }
+// Helper: blend a pixel into the backbuffer using alpha (0–1)
+static inline void picasso__plot_aa(picasso_backbuffer *bf, int x, int y, color c, float alpha)
+{
+    if (x < 0 || x >= (int)bf->width || y < 0 || y >= (int)bf->height) return;
+
+    c.a = (uint8_t)(c.a * alpha);
+    uint32_t src = color_to_u32(c);
+    uint32_t *dst_pixel = &bf->pixels[y * bf->width + x];
+    *dst_pixel = picasso__blend_pixel(*dst_pixel, src);
+}
+// Draws an anti-aliased circle centered at (cx, cy) with radius r
+void picasso_draw_circle_aa(picasso_backbuffer *bf, int cx, int cy, int r, color c)
+{
+    int x = r;
+    int y = 0;
+
+    while (x >= y)
+    {
+        for (int i = -1; i <= 1; ++i) // Simple approximation of AA with offset
+        {
+            float fx = x + i * 0.5f;
+            float fy = y + i * 0.5f;
+            float d = fabsf(sqrtf(fx * fx + fy * fy) - r);
+            float alpha = 1.0f - fminf(d, 1.0f); // Blend alpha based on distance
+
+            // Symmetrical 8-way plotting with anti-aliasing
+            picasso__plot_aa(bf, cx + x, cy + y, c, alpha);
+            picasso__plot_aa(bf, cx + y, cy + x, c, alpha);
+            picasso__plot_aa(bf, cx - y, cy + x, c, alpha);
+            picasso__plot_aa(bf, cx - x, cy + y, c, alpha);
+            picasso__plot_aa(bf, cx - x, cy - y, c, alpha);
+            picasso__plot_aa(bf, cx - y, cy - x, c, alpha);
+            picasso__plot_aa(bf, cx + y, cy - x, c, alpha);
+            picasso__plot_aa(bf, cx + x, cy - y, c, alpha);
+        }
+
+        y++;
+        if ((x * x + y * y) > r * r)
+            x--;
+    }
+}
+
+// Full version of the bresenham line algorithm, works in all quadrants
+// Bresenham’s algorithm keeps track of an accumulated error value that
+// represents how far off the current pixel is from the actual line. It uses
+// this value to decide when to adjust in x or y direction so that the
+// resulting path closely follows the desired straight line.
 void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c)
 {
+    // dx and dy are the distances in x and y directions.
+	// absolute value to work with positive deltas regardless of direction.
+    int dx = PICASSO_ABS(x1 - x0);
+    int dy = PICASSO_ABS(y1 - y0);
+    // sx and sy define the direction to move in for both axes
+    // If x0 is less than x1, we move right (+1), otherwise left (-1), and
+    // similarly for y.
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    // err starts at the diff x and y distances.
+	// This hits at when to step in the y-direction vs x-direction.
+    int err = dx - dy;
     uint32_t new_pixel = color_to_u32(c);
 
-    /* Bresenhams lines algorithm
-     * */
-    int dx = x1-x0;
-    int dy = y1-y0;
-    int D = 2*dy-dx;
-    int y = y0;
-    for(int i = x0; i < x1; ++i){
-        bf->pixels[y*bf->width + i] = new_pixel;
-        if (D > 0) {
-            y++;
-            D -= 2*dx;
+    while (true) {
+        // (basic clipping)
+        if (x0 >= 0 && x0 < (int)bf->width && y0 >= 0 && y0 < (int)bf->height) {
+            uint32_t *dst = &bf->pixels[y0 * bf->width + x0];
+            *dst = picasso__blend_pixel(*dst, new_pixel);
         }
-        D += 2*dy;
+
+        if (x0 == x1 && y0 == y1)
+            break;
+
+        // We double the current error (e2) so we can test both x and y
+        // adjustments without using floats.
+        // If the error is large enough, step in x, and adjust the error.
+        // If the error is small enough, step in y, and adjust the error.
+
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 < dx)  { err += dx; y0 += sy; }
     }
+}
+//// Breaks, only works in one quadrant
+//void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c)
+//{
+//    uint32_t new_pixel = color_to_u32(c);
+//
+//    /* Bresenhams lines algorithm
+//     * */
+//    int dx = x1-x0;
+//    int dy = y1-y0;
+//    int D = 2*dy-dx;
+//    int y = y0;
+//    for(int i = x0; i < x1; ++i){
+//        bf->pixels[y*bf->width + i] = new_pixel;
+//        if (D > 0) {
+//            y++;
+//            D -= 2*dx;
+//        }
+//        D += 2*dy;
+//    }
+//}
+
+
+
+
+// Draws an anti-aliased line using Xiaolin Wu's algorithm
+// https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm
+void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, float y1, color c)
+{
+    // Check if the line is steep
+    int steep = fabsf(y1 - y0) > fabsf(x1 - x0);
+    // If steep, swap x and y to simplify the loop
+    if (steep) {
+        float tmp;
+        tmp = x0; x0 = y0; y0 = tmp;
+        tmp = x1; x1 = y1; y1 = tmp;
+    }
+    // Ensure the line goes left to right
+    if (x0 > x1) {
+        float tmp;
+        tmp = x0; x0 = x1; x1 = tmp;
+        tmp = y0; y0 = y1; y1 = tmp;
+    }
+
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float gradient = dx == 0 ? 1 : dy / dx;
+
+    int x_start = (int)floorf(x0);
+    float y = y0 + gradient * (x_start - x0);
+
+    // Loop from x0 to x1, calculating the corresponding y value
+    for (int x = x0; x <= x1; ++x) {
+        int y_int = (int)floorf(y);         // Integer part of y
+        float y_frac = y - y_int;           // Fractional part (for blending)
+
+        // Blend pixels based on coverage
+        if (steep) {
+            // If the line was steep, draw transposed
+            picasso__plot_aa(bf, y_int,     x, c, 1.0f - y_frac);
+            picasso__plot_aa(bf, y_int + 1, x, c, y_frac);
+        } else {
+            picasso__plot_aa(bf, x, y_int,     c, 1.0f - y_frac);
+            picasso__plot_aa(bf, x, y_int + 1, c, y_frac);
+        }
+
+        y += gradient; // Move to next y
+    }
+}
+
+void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, color c)
+{
+    for (int y = -radius; y <= radius; ++y)
+    {
+        for (int x = -radius; x <= radius; ++x)
+        {
+            int px = cx + x;
+            int py = cy + y;
+
+            // Euclidean distance from center
+            float dist = sqrtf(x * x + y * y);
+
+            if (dist < radius - 1.0f)
+            {
+                // Inside the circle core — fully opaque
+                picasso__plot_aa(bf, px, py, c, 1.0f);
+            }
+            else if (dist <= radius)
+            {
+                // Edge pixels — fade out with distance to smooth edge
+                float alpha = radius - dist;
+                ERROR("alpha = %04f", alpha);
+                picasso__plot_aa(bf, px, py, c, alpha);
+            }
+            // Outside the circle — do nothing
+        }
+    }
+}
+
+void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 pts, color c)
+{
+    // Unpack input
+    int x0 = pts.x1, y0 = pts.y1;
+    int x1 = pts.x2, y1 = pts.y2;
+    int x2 = pts.x3, y2 = pts.y3;
+
+    // Clamp with proper types to avoid warnings
+    int min_x = PICASSO_CLAMP(PICASSO_MIN3(x0, x1, x2), 0, (int)bf->width - 1);
+    int max_x = PICASSO_CLAMP(PICASSO_MAX3(x0, x1, x2), 0, (int)bf->width - 1);
+    int min_y = PICASSO_CLAMP(PICASSO_MIN3(y0, y1, y2), 0, (int)bf->height - 1);
+    int max_y = PICASSO_CLAMP(PICASSO_MAX3(y0, y1, y2), 0, (int)bf->height - 1);
+
+    float denom = (float)((y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2));
+
+    for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+            float w0 = ((y1 - y2)*(x - x2) + (x2 - x1)*(y - y2)) / denom;
+            float w1 = ((y2 - y0)*(x - x2) + (x0 - x2)*(y - y2)) / denom;
+            float w2 = 1.0f - w0 - w1;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                uint32_t src = color_to_u32(c);
+                uint32_t *dst = &bf->pixels[y * bf->width + x];
+                *dst = picasso__blend_pixel(*dst, src);
+            }
+        }
+    }
+}
+
+void picasso_draw_triangle_aa(picasso_backbuffer *bf, picasso_point3 pts, color fill_color, color edge_color)
+{
+    // 1. Fill the triangle with aliasing (solid fill, no smoothing inside)
+    picasso_fill_triangle(bf, pts, fill_color);
+
+    // 2. Draw anti-aliased edges
+    picasso_draw_line_aa(bf, pts.x1, pts.y1, pts.x2, pts.y2, edge_color);
+    picasso_draw_line_aa(bf, pts.x2, pts.y2, pts.x3, pts.y3, edge_color);
+    picasso_draw_line_aa(bf, pts.x3, pts.y3, pts.x1, pts.y1, edge_color);
 }
