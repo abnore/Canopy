@@ -39,19 +39,7 @@ int main(void)
     canopy_init_timer();
     canopy_set_fps(60); // default is 60
 
-    framebuffer fb;
-    fb.width = 400;
-    fb.height = 400;
-    fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
-
-    size_t buffer_size = fb.pitch * fb.height;
-    fb.pixels = canopy_malloc(buffer_size);
-
-    if (!fb.pixels) {
-        FATAL("Failed to allocate framebuffer");
-        return 1;
-    }
-
+    framebuffer *fb = canopy_get_framebuffer(win);
     //--------------------------------------------------------------------------------------
 
     // Main Game Loop
@@ -73,7 +61,7 @@ int main(void)
         {
             // Fill the framebuffer with its color
             for (int i = 0; i < PIXELS; ++i) {
-                fb.pixels[i] = 0xff2020ff;
+                fb->pixels[i] = 0xff2020ff;
             }
 
             for (int i = 0; i < PIXELS; ++i) {
@@ -82,7 +70,7 @@ int main(void)
 
                 if(i >= PIXELS/2){
                     uint32_t pixel = CANOPY_BLUE;
-                    fb.pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
+                    fb->pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
                 }
 //                else{
 //                    uint32_t pixel = PHTALO_BLUE;
@@ -92,7 +80,7 @@ int main(void)
 
             // Do other stuff graphicly here
 
-            canopy_swap_backbuffer(win,&fb);    // Switch pointers of custom framebuffer
+            //canopy_swap_backbuffer(win,fb);    // Switch pointers of custom framebuffer
             canopy_present_buffer(win);         // Present on screen
         }
         //----------------------------------------------------------------------------------
@@ -100,7 +88,6 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    canopy_free(fb.pixels);
     canopy_free_window(win);
     shutdown_log();
     //--------------------------------------------------------------------------------------

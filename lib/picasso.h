@@ -35,6 +35,11 @@ typedef struct {
     int x;
     int y;
 } picasso_point;
+typedef picasso_point picasso_vec2;
+
+typedef struct {
+    int x, y, z;
+} picasso_vec3;
 
 typedef struct {
     int x1, x2;
@@ -61,12 +66,19 @@ typedef struct {
 #define PICASSO_SWAP(a,b)  ({ __typeof__(a) _a = (a); (a) = (b); (b) = _a;})
 #define PICASSO_MIN3(a,b,c) (PICASSO_MIN((a),PICASSO_MIN((b),(c))))
 #define PICASSO_MAX3(a,b,c) (PICASSO_MAX((a),PICASSO_MAX((b),(c))))
-#define PICASSO_CLAMP(x, lo, hi) ({          \
-    __typeof__(x) _x = (x);                  \
-    __typeof__(lo) _lo = (lo);               \
-    __typeof__(hi) _hi = (hi);               \
-    _x < _lo ? _lo : (_x > _hi ? _hi : _x);  \
-})
+#define PICASSO_CLAMP(x, lo, hi) ({             \
+        __typeof__(x) _x = (x);                 \
+        __typeof__(lo) _lo = (lo);              \
+        __typeof__(hi) _hi = (hi);              \
+        _x < _lo ? _lo : (_x > _hi ? _hi : _x); \
+        })
+#define PICASSO_LERP(a,b,t) ({                  \
+        __typeof__(t) _t = (t);                 \
+        __typeof__(v0) _v0 = (v0);              \
+        __typeof__(v1) _v1 = (v1);              \
+        (1 - (_t)) * (_v0) + (_t) * (_v1)       \
+        })
+
 static inline uint8_t *picasso__get_pixel_u8(picasso_image *img, int x, int y)
 {
     return &img->pixels[y * img->row_stride + x * img->channels];
@@ -239,20 +251,22 @@ void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_
 void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y);
 void* picasso_backbuffer_pixels(picasso_backbuffer *bf);
 
-/* -------------------- Graphical Raster Section -------------------- */
+/* -------------------- Picasso Image Section -------------------- */
+void picasso_copy(picasso_image *src, picasso_image *dst);
 
+/* -------------------- Graphical Raster Section -------------------- */
 
 void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c);
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c);
 void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c);
 void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, float y1, color c);
+void picasso_draw_line_thick(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, int thickness, color c);
 void picasso_draw_circle_aa(picasso_backbuffer *bf, int cx, int cy, int r, color c);
 void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, color c);
 void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c);
 void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c);
 void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 p, color c);
 void picasso_draw_triangle_aa(picasso_backbuffer *bf, picasso_point3 pts, color fill_color, color edge_color);
-void picasso_copy(picasso_image *src, picasso_image *dst);
 
 /* -------------------- Format Section -------------------- */
 // Define BMP file header structures
@@ -329,10 +343,16 @@ bmp *picasso_create_bmp_from_rgba(uint8_t *pixel_data, int width, int height, in
 PPM *picasso_load_ppm(const char *filename);
 int picasso_save_to_ppm(PPM *image, const char *file_path);
 
-
+picasso_vec2 vector_add(picasso_vec2 v1, picasso_vec2 v2);
+picasso_vec2 vector_sub(picasso_vec2 v1, picasso_vec2 v2);
+picasso_vec2 vector_scale(picasso_vec2 v1, float scale);
+picasso_vec2 lerp_vec2(picasso_vec2 v1, picasso_vec2 v2, float t);
+picasso_vec2 bezier_lerp(picasso_vec2 p0, picasso_vec2 p1, picasso_vec2 p2, float t);
+void draw_bezier(picasso_backbuffer *bf, picasso_vec2 p0, picasso_vec2 p1, picasso_vec2 p2, int resolution);
 
 
 
 
 
 #endif // PICASSO_H
+

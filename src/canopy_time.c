@@ -1,17 +1,18 @@
 #include "canopy_time.h"
-#include "logger/logger.h"  // Assuming your logger setup
+#include "logger.h"
 
 #include <mach/mach_time.h>
 #include <inttypes.h>  // For PRIu64
 
 #define DEFAULT_FPS 60
-
+// TODO: get_delta_time, and normalize it (think mario)
 static struct {
     mach_timebase_info_data_t timebase;
     double to_seconds;
 
     double target_frame_time;     // Time between frames (in seconds)
     double last_frame_time;       // Timestamp of last rendered frame
+    double delta_time;
 } canopy_timer;
 
 void canopy_init_timer(void)
@@ -52,6 +53,11 @@ uint64_t canopy_get_time_ns(void)
     return ns;
 }
 
+double canopy_get_delta_time(void)
+{
+    return canopy_timer.delta_time;
+}
+
 void canopy_set_fps(int fps)
 {
     if (fps < 1) {
@@ -76,6 +82,7 @@ int canopy_should_render_frame(void)
     double elapsed = now - canopy_timer.last_frame_time;
 
     if (elapsed >= canopy_timer.target_frame_time) {
+        canopy_timer.delta_time = elapsed;
         canopy_timer.last_frame_time = now;
        // TRACE("Render allowed (elapsed %.6f >= %.6f)", elapsed, canopy_timer.target_frame_time);
         return 1;

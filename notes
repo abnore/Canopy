@@ -1,0 +1,31 @@
+# Barycentric coordinations
+
+
+# Linear interpolation -
+
+Many libraries and shading languages have a "lerp" helper-function (in GLSL
+known instead as mix), returning an interpolation between two inputs (v0, v1)
+for a parameter t in the closed unit interval [0, 1]. Signatures between lerp
+	functions are variously implemented in both the forms (v0, v1, t) and
+	(t, v0, v1).
+
+// Imprecise method, which does not guarantee v = v1 when t = 1, due to floating-point arithmetic error.
+// This method is monotonic. This form may be used when the hardware has a native fused multiply-add instruction.
+
+float lerp(float v0, float v1, float t)
+{
+    return v0 + t * (v1 - v0);
+}
+
+// Precise method, which guarantees v = v1 when t = 1. This method is monotonic only when v0 * v1 < 0.
+// Lerping between same values might not produce the same value
+
+float lerp(float v0, float v1, float t)
+{
+    return (1 - t) * v0 + t * v1;
+}
+
+This lerp function is commonly used for alpha blending (the parameter "t"
+is the "alpha value"), and the formula may be extended to blend multiple
+components of a vector (such as spatial x, y, z axes or r, g, b colour
+components) in parallel.

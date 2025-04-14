@@ -832,6 +832,16 @@ void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, 
         y += gradient; // Move to next y
     }
 }
+void picasso_draw_line_thick(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, int thickness, color c)
+{
+    int steps = sqrtf((x1 - x0)*(x1 - x0) + (y1 - y0)*(y1 - y0));
+    for (int i = 0; i <= steps; ++i) {
+        float t = (float)i / steps;
+        int x = (int)(x0 + t * (x1 - x0));
+        int y = (int)(y0 + t * (y1 - y0));
+        picasso_fill_circle_aa(bf, x, y, thickness / 2, c);
+    }
+}
 
 void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, color c)
 {
@@ -854,7 +864,6 @@ void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, 
             {
                 // Edge pixels — fade out with distance to smooth edge
                 float alpha = radius - dist;
-                ERROR("alpha = %04f", alpha);
                 picasso__plot_aa(bf, px, py, c, alpha);
             }
             // Outside the circle — do nothing
@@ -901,4 +910,46 @@ void picasso_draw_triangle_aa(picasso_backbuffer *bf, picasso_point3 pts, color 
     picasso_draw_line_aa(bf, pts.x1, pts.y1, pts.x2, pts.y2, edge_color);
     picasso_draw_line_aa(bf, pts.x2, pts.y2, pts.x3, pts.y3, edge_color);
     picasso_draw_line_aa(bf, pts.x3, pts.y3, pts.x1, pts.y1, edge_color);
+}
+
+// ------- Bezier support TODO: place these at a suitable place later
+picasso_vec2 vector_add(picasso_vec2 v1, picasso_vec2 v2)
+{
+    return (picasso_vec2) { .x = v1.x + v2.x, .y = v1.y + v2.y };
+}
+picasso_vec2 vector_sub(picasso_vec2 v1, picasso_vec2 v2)
+{
+    return (picasso_vec2) { .x = v1.x - v2.x, .y = v1.y - v2.y };
+}
+picasso_vec2 vector_scale(picasso_vec2 v1, float scale)
+{
+    return (picasso_vec2) { .x = v1.x * scale, .y = v1.y * scale };
+}
+picasso_vec2 lerp_vec2(picasso_vec2 v1, picasso_vec2 v2, float t)
+{
+    return vector_add(v1, vector_scale(vector_sub(v2, v1), t));
+}
+
+picasso_vec2 bezier_lerp(picasso_vec2 p0, picasso_vec2 p1, picasso_vec2 p2, float t)
+{
+    picasso_vec2 inter1 = lerp_vec2(p0, p1, t);
+    picasso_vec2 inter2 = lerp_vec2(p1, p2, t);
+    return lerp_vec2(inter1, inter2, t);
+}
+
+void draw_bezier(picasso_backbuffer *bf,
+                        picasso_vec2 p0, picasso_vec2 p1, picasso_vec2 p2,
+                        int resolution)
+{
+   picasso_vec2 prev_point = p0;
+
+   for (int i = 0; i < resolution; ++i)
+   {
+       float t = (i + 1.f) / resolution;
+       picasso_vec2 next_point = bezier_lerp(p0, p1, p2, t);
+//       picasso_draw_thick_line_soft(bf, 100, 100, 400, 400,4, PINK);
+       //picasso_draw_line_aa(bf, prev_point.x, prev_point.y, next_point.x, next_point.y, RED);
+       picasso_draw_line_thick(bf, prev_point.x, prev_point.y, next_point.x, next_point.y, 4,RED);
+       prev_point = next_point;
+   }
 }
