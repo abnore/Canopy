@@ -60,7 +60,7 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt)
     *angle += 0.25*M_PI*dt;
     for( int ix = 0; ix < GRID_COUNT; ++ix){
         for( int iy = 0; iy < GRID_COUNT; ++iy){
-            for( int iz = 0; iz < GRID_COUNT; ++iz){
+            for( int iz = 0; iz < 5; ++iz){
                 float x = ix*GRID_PAD - GRID_SIZE/2; //-- these are now from -1 to 1
                 float y = iy*GRID_PAD - GRID_SIZE/2;
                 float z = Z_START + iz*GRID_PAD;

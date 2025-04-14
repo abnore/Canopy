@@ -29,7 +29,8 @@ tests       = test_basic \
 	      test_graphics \
 	      test_triangle \
 	      test_3d \
-	      test_bezier
+	      test_bezier \
+	      test_font
 
 outputs     = $(addprefix $(bin_dir)/, $(tests))
 
