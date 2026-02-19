@@ -14,14 +14,14 @@
 #define CIRCLE_COLOR CYAN
 #define GRID_COUNT 10
 #define GRID_PAD 0.5/GRID_COUNT
-#define GRID_SIZE ((GRID_COUNT -1)*GRID_PAD)
+#define GRID_SIZE ((GRID_COUNT - 1)*GRID_PAD)
 #define Z_START 0.25
 
 void render3d(picasso_backbuffer *bf, float *angle, double dt);
 
 int main(void)
 {
-    init_log(NO_LOG, LOG_COLORS, STDERR_TO_LOG);
+    init_log(NO_LOG, LOG_COLORS, STDERR_TO_TERMINAL);
     canopy_init_timer();
     canopy_set_fps(60);
 
@@ -58,9 +58,10 @@ int main(void)
 void render3d(picasso_backbuffer *bf, float *angle, double dt)
 {
     *angle += 0.25*M_PI*dt;
+
     for( int ix = 0; ix < GRID_COUNT; ++ix){
         for( int iy = 0; iy < GRID_COUNT; ++iy){
-            for( int iz = 0; iz < 5; ++iz){
+            for( int iz = 0; iz < GRID_COUNT; ++iz){
                 float x = ix*GRID_PAD - GRID_SIZE/2; //-- these are now from -1 to 1
                 float y = iy*GRID_PAD - GRID_SIZE/2;
                 float z = Z_START + iz*GRID_PAD;
@@ -82,7 +83,6 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt)
 
                 x /= z;
                 y /= z;
-                // (-1, (..), 1 plus one is 0-2 and then divided by 2 is 0-1 *times width = 0-width! Normalized!
 
                 color c = {
                     .r = ix*255/GRID_COUNT,
@@ -90,7 +90,17 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt)
                     .b = iz*255/GRID_COUNT,
                     .a = 255,
                 };
-                picasso_fill_circle_aa(bf,(x+1)/2*WIDTH,(y+1)/2*HEIGHT, RADIUS, c);
+                // (-1, (..), 1 plus one is 0-2 and then divided by 2 is 0-1 *times width = 0-width! Normalized!
+                float depth_factor = 1.0f - (z - Z_START) / GRID_SIZE;
+                depth_factor = PICASSO_CLAMP(depth_factor, 0.0f, 1.0f);
+
+                // Reduce variation — blend toward a neutral midpoint like 0.75
+                depth_factor = 0.75f + 0.25f * depth_factor;
+                depth_factor = 1.0f / (1.0f + 2.0f * (z - Z_START));
+                depth_factor = PICASSO_CLAMP(depth_factor, 0.75f, 1.0f); // keep it gentle
+                z = fmaxf(z, Z_START + 0.05f); // avoid z getting too small
+                float radius = RADIUS * depth_factor;
+                picasso_fill_circle_aa(bf, (x + 1) / 2 * WIDTH, (y + 1) / 2 * HEIGHT, radius, c);
             }
         }
     }

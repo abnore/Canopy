@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#include <blackbox.h>
 
 #include "picasso.h"
-#include "logger.h"
 
 
 void* picasso_calloc(size_t count, size_t size){
@@ -498,7 +498,8 @@ void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_
     picasso_draw_bounds bounds;
     if (!picasso__clip_rect_to_bounds(dst, &dst_r, &bounds)) return;
 
-    // Extracting the scaling factor, how fast we sample from the src to the dst. Maybe 2 pixels per pixel
+    // Extracting the scaling factor, how fast we sample from the src to the dst.
+    // Maybe 2 pixels per pixel
     float scale_x = (float)src_r.width  / dst_r.width;
     float scale_y = (float)src_r.height / dst_r.height;
 
@@ -767,7 +768,7 @@ void picasso_draw_circle_aa(picasso_backbuffer *bf, int cx, int cy, int r, color
 void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c)
 {
     // dx and dy are the distances in x and y directions.
-	// absolute value to work with positive deltas regardless of direction.
+    // absolute value to work with positive deltas regardless of direction.
     int dx = PICASSO_ABS(x1 - x0);
     int dy = PICASSO_ABS(y1 - y0);
     // sx and sy define the direction to move in for both axes
@@ -776,7 +777,7 @@ void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, c
     int sx = (x0 < x1) ? 1 : -1;
     int sy = (y0 < y1) ? 1 : -1;
     // err starts at the diff x and y distances.
-	// This hits at when to step in the y-direction vs x-direction.
+    // This hits at when to step in the y-direction vs x-direction.
     int err = dx - dy;
     uint32_t new_pixel = color_to_u32(c);
 

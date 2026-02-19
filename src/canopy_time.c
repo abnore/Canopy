@@ -1,10 +1,11 @@
 #include "canopy_time.h"
-#include "logger.h"
 
+#include <blackbox.h>
 #include <mach/mach_time.h>
 #include <inttypes.h>  // For PRIu64
 
 #define DEFAULT_FPS 60
+
 // TODO: get_delta_time, and normalize it (think mario)
 static struct {
     mach_timebase_info_data_t timebase;

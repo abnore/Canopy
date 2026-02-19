@@ -1,7 +1,8 @@
 #include <stdbool.h>
 #include <string.h>
+#include <blackbox.h>
+
 #include "picasso.h"
-#include "logger.h"
 #include "picasso_icc_profiles.h"
 
 #define LCS_GM_BUSINESS          (1<<0) // 0x00000001  // Saturation
@@ -37,9 +38,11 @@ typedef enum {
 
 typedef enum {
     LCS_WINDOWS_COLOR_SPACE = 0x57696E20, // Native Windows color space ('Win ' in little-endian)
-    LCS_sRGB                = 0x73524742, // Standard sRGB color space ('sRGB' in little-endian) — this is the most common.
-    PROFILE_EMBEDDED        = 0x4D424544, // Custom ICC profile embedded in file ('MBED' in little-endian, displayed as 0x4D424544)
-    PROFILE_LINKED          = 0x4C494E4B, // ICC profile is in an external file ('LINK' in little-endian)
+    LCS_sRGB                = 0x73524742, // Standard sRGB color space ('sRGB' in little-endian)
+    PROFILE_EMBEDDED        = 0x4D424544, // Custom ICC profile embedded in file
+                                          // ('MBED' in little-endian, displayed as 0x4D424544)
+    PROFILE_LINKED          = 0x4C494E4B, // ICC profile is in an external file
+                                          // ('LINK' in little-endian)
 } bmp_cs_type;
 
 const char *bmp_compression_to_str(uint32_t compression) {
@@ -99,8 +102,6 @@ char *_print_header_type(bmp_header_type type)
     }
 }
 
-
-
 // This counts how many bits are set to 1 in the mask.
 static inline int mask_bit_count(uint32_t mask) {
     int count = 0;
@@ -121,8 +122,8 @@ static inline int mask_bit_shift(uint32_t mask) {
     }
     return shift;
 }
-// A pixel decoder is the part of your BMP loader that interprets raw pixel
-// data using the bit masks — especially for 16-bit or 32-bit images using
+// A pixel decoder is the part of a BMP loader that interprets raw pixel
+// data using the bit masks, especially for 16-bit or 32-bit images using
 // BI_BITFIELDS or BI_ALPHABITFIELDS.
 static inline uint8_t decode_channel(color p, uint32_t mask)
 {
@@ -141,7 +142,7 @@ static inline uint8_t decode_channel(color p, uint32_t mask)
     // Scale up to 8-bit
     return (uint8_t)((value * 255) / ((1 << bits) - 1));
 }
-// Call this to decore and write the pixel, if you give it the pixel
+// Call this to decode and write the pixel, if you give it the pixel
 #define decode_and_write_pixel_32bit(pixel, pixel_p) do {     \
     memcpy(&(pixel), (pixel_p), 4);                           \
     (pixel_p)[0] = decode_channel((pixel), bmp.rm);           \
@@ -187,7 +188,8 @@ void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height, int ch
 {
     int row_size = ((width * channels + 3) / 4) * 4; // include padding!
 
-    TRACE("Flipping buffer vertically (%dx%d) channels: %d, row_size: %d", width, height, channels, row_size);
+    TRACE("Flipping buffer vertically (%dx%d) channels: %d, row_size: %d",
+            width, height, channels, row_size);
 
     uint8_t temp_row[row_size];
 
@@ -258,7 +260,7 @@ int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile p
         return -1;
     }
 
-// Embed ICC profile if requested
+    // Embed ICC profile if requested
     if (profile != PICASSO_PROFILE_NONE) {
         if (!picasso_embed_icc_profile(image, profile, f)) {
             WARN("Failed to embed ICC profile");
@@ -286,7 +288,7 @@ bmp *picasso_create_bmp_from_rgba(uint8_t *pixel_data, int width, int height, in
         ERROR("Invalid BMP creation params: %dx%d", width, height);
         return NULL;
     }
-    bool all_alpha_zero = (channels == 4);          // I only care if alpha exist
+    bool all_alpha_zero = (channels == 4);             // I only care if alpha exist
     int abs_height = PICASSO_ABS(height);
     int row_stride = width * channels;                         // tightly packed source
     int row_size   = ((row_stride + 3) / 4) * 4;               // padded BMP row size

@@ -2,7 +2,6 @@
 #include "stb_truetype.h"
 #include "picasso.h"
 #include "canopy.h"
-#include "logger.h"
 
 #define WIDTH 800
 #define HEIGHT 600
