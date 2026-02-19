@@ -1,11 +1,8 @@
-/*******************************************************************************
- * Canopy — Minimal Windowing & Input Library for macOS
- *
- * Main API for the Canopy library
- *
- * Author: Andreas Nore (abnore)
- * License: MIT
- *******************************************************************************/
+//===================================================================================
+// Minimal Windowing & Input Library for macOS
+//
+// Author: Andreas Nore (github@abnore)
+//===================================================================================
 
 #ifndef CANOPY_H
 #define CANOPY_H
@@ -17,7 +14,7 @@ extern "C" { // Prevents name mangling of functions
 #include "canopy_time.h"
 #include "common.h"
 
-/// @brief Available window style options for Canopy windows.
+// Available window style options for canopy windows.
 typedef enum {
     CANOPY_WINDOW_STYLE_BORDERLESS              = 0,
     CANOPY_WINDOW_STYLE_TITLED                  = 1,
@@ -32,7 +29,6 @@ typedef enum {
     CANOPY_WINDOW_STYLE_FULLSCREEN              = 1 << 14,
     CANOPY_WINDOW_STYLE_FULLSIZE_CONTENT        = 1 << 15,
 
-    /// @brief Default window style (Titled, Closable, Miniaturizable, Resizable).
     CANOPY_WINDOW_STYLE_DEFAULT = CANOPY_WINDOW_STYLE_TITLED |
                                   CANOPY_WINDOW_STYLE_CLOSABLE |
                                   CANOPY_WINDOW_STYLE_MINIATURIZABLE |
@@ -50,7 +46,7 @@ typedef enum {
 
     This allows:
         * Declaring pointers to it (canopy_window*)
-        * Passing it to and returning it from functions
+        * Passing it to, and returning it from, functions
 
     But you cannot:
         * Dereference it
@@ -58,87 +54,70 @@ typedef enum {
         * Allocate it directly (its size is unknown)
 
     In other words: it's opaque on purpose. Treat it with respect.
+    Don't access directly.
 */
-/// @brief Opaque window structure. Don't access directly.
+//==============================================================================
 typedef struct canopy_window canopy_window;
+//==============================================================================
 
-/// @brief Bytes per pixel in the framebuffer (RGBA = 4 bytes)
 #define CANOPY_BYTES_PER_PIXEL 4
 
-/// @brief Framebuffer structure for storing pixel data.
 typedef struct {
-    uint32_t    *pixels;      ///< Pixel buffer (RGBA).
-    int         width;        ///< Width in pixels.
-    int         height;       ///< Height in pixels.
-    int         pitch;        ///< Number of bytes per row.
+    uint32_t    *pixels;      // Pixel buffer (RGBA).
+    int         width;        // Width in pixels.
+    int         height;       // Height in pixels.
+    int         pitch;        // Number of bytes per row.
 } framebuffer;
 
 
-/// @name Window Lifecycle
-/// @{
-///
-/// @brief Creates and shows a new window with the given size and title.
-/// @param[in] width Width of the window in screen pixels.
-/// @param[in] height Height of the window in screen pixels.
-/// @param[in] title Window title (UTF-8 encoded C string).
-/// @return A pointer to the newly created window, or NULL on failure.
+/*
+ * Creates and shows a new window with the given size and title. Width and
+ * height of the window in screen pixels. Returns a pointer to the newly
+ * created window, or NULL on failure.
+ */
 canopy_window* canopy_create_window(const char* title,
                                     int width,
                                     int height,
                                     canopy_window_style flags);
 
-/// @brief Frees and closes a previously created window.
-/// @param[in,out] w The window to destroy.
 void canopy_free_window(canopy_window* w);
 
-/// @brief Sets the dock icon of the application (macOS only).
-/// @param[in] filepath Path to an image file to use as the application icon.
+/*
+ * Set dock icon, give path to an image file to use as the application icon.
+ */
 void canopy_set_icon(const char* filepath);
 bool canopy_is_window_opaque(canopy_window *win);
 void canopy_set_window_transparent(canopy_window *w, bool enable);
 
-/// @brief Send a request to close the window
-/// @param[in] w The window to query.
+/*
+ * Send a request to close the window
+ */
 void canopy_set_window_should_close(canopy_window *w);
-/// @brief Checks if the window should close (user clicked the close button).
-/// @param[in] w The window to query.
-/// @return true if the window should close, false otherwise.
+
+/*
+ * Check if the window should close (user clocked the close button)
+ * True if it is set to close, false otherwise
+ */
 bool canopy_window_should_close(canopy_window* w);
-/// @}
 
-
-/// @name Framebuffer Management
-/// @{
-///
-/// @brief Initializes the framebuffer attached to the given window.
-/// @param[in,out] w The window to initialize the framebuffer for.
-/// @return true if successful, false on failure.
+/*
+ * Attaches a framebuffer to a window w
+ */
 bool canopy_init_framebuffer(canopy_window* w);
-
-/// @brief Returns the framebuffer associated with the window.
-/// @param[in] w The target window.
-/// @return Pointer to the framebuffer structure.
 framebuffer* canopy_get_framebuffer(canopy_window* w);
-
-/// @brief Presents the contents of the framebuffer to the screen.
-/// @param[in] w The target window.
+/*
+ * Presents the contents of the framebuffer to the window
+ */
 void canopy_present_buffer(canopy_window* w);
-
-/// @brief Swaps a custom backbuffer into the window's framebuffer.
-/// @param[in,out] w The target window.
-/// @param[in,out] bf The backbuffer to swap. Contents may be overwritten.
 void canopy_swap_backbuffer(canopy_window* w, framebuffer* bf);
-/// @}
 
-
-/// @name Event Handling
-/// @brief Supports polling and pushing input events.
-///
-/// @{
-/// @brief Maximum number of simultaneous events stored in the internal event queue.
+/*==============================================================================
+ * The event system for Canopy.
+ * Supports polling and pushing input events.
+ */
 #define CANOPY_MAX_EVENTS 64
 
-/// @brief Type of high-level events.
+// Type of high-level events.
 typedef enum {
     CANOPY_EVENT_NONE,
     CANOPY_EVENT_MOUSE,
@@ -146,7 +125,7 @@ typedef enum {
     CANOPY_EVENT_TEXT,
 } canopy_event_type;
 
-/// @brief Mouse-specific event actions.
+// Mouse-specific event actions.
 typedef enum {
     CANOPY_MOUSE_NONE,
     CANOPY_MOUSE_PRESS,
@@ -158,7 +137,7 @@ typedef enum {
     CANOPY_MOUSE_EXIT
 } canopy_action_mouse;
 
-/// @brief Key-specific event actions.
+// Key-specific event actions.
 typedef enum {
     CANOPY_KEY_NONE,
     CANOPY_KEY_PRESS,
@@ -169,7 +148,7 @@ typedef struct {
     char utf8[5]; // Enough for any UTF-8 encoded codepoint
 } canopy_event_text;
 
-/// @brief Mouse event structure.
+// Mouse event structure.
 typedef struct {
     canopy_action_mouse action;
     int x, y;
@@ -180,7 +159,7 @@ typedef struct {
     float scroll_y;
 } canopy_event_mouse;
 
-/// @brief Keyboard event structure.
+// Keyboard event structure.
 typedef struct {
     canopy_action_key action;
     keys keycode;
@@ -188,7 +167,7 @@ typedef struct {
     int is_repeat;
 } canopy_event_key;
 
-/// @brief Generic event union.
+// Generic event union.
 typedef struct {
     canopy_event_type type;
     union {
@@ -198,10 +177,9 @@ typedef struct {
     };
 } canopy_event;
 
-/// Getters and Setters for internal events
 void canopy_get_mouse_pos(canopy_window *window, double *x, double *y);
 
-/// Callback functions to handle events
+// Callback functions to handle events
 typedef void (*canopy_callback_key)(canopy_window*, canopy_event_key*);
 typedef void (*canopy_callback_mouse)(canopy_window*, canopy_event_mouse*);
 typedef void (*canopy_callback_text)(canopy_window*, canopy_event_text*);
@@ -210,33 +188,34 @@ void canopy_set_callback_key( canopy_callback_key cb);
 void canopy_set_callback_mouse( canopy_callback_mouse cb);
 void canopy_set_callback_text( canopy_callback_text cb);
 
-void canopy_dispatch_events(canopy_window *w);
-/// @brief Poll the next event, if available.
-/// @param[out] out_event Pointer to a canopy_event struct to fill.
-/// @return true if an event was available and written to out_event, false otherwise.
+/*
+ * Poll the next event, if available. out_event is a struct to fill,
+ * Returns true with strut filled if available, false otherwise
+ */
 bool canopy_poll_event(canopy_event* out_event);
+void canopy_dispatch_events(canopy_window *w);
 
-/// @brief Post a fake (empty) event to the queue to wake up wait-based event loops.
-///
-/// This is useful to break out of canopy_wait_events() from another thread.
+/* Posting a fake (empty) event to the queue to wake up wait-based event loops.
+ * This can be useful to break out of canopy_wait_events() from another thread
+ */
 void canopy_post_empty_event(void);
 
-/// @brief Process all pending events and dispatch them to the internal event system.
-///
-/// This should be called regularly if you're using a manual event loop.
+/*
+ * Process all pending events, and dispatch them to the internal event system.
+ * This should be called regularly if using a manual event loop.
+ */
 void canopy_pump_events(void);
 
-/// @brief Block until an event occurs and dispatch it.
-///
-/// Uses [NSDate distantFuture] to sleep until the next input event.
+/*
+ * Block until an event occurs and dispath it. Uses [NSDate distandFuture] to
+ * sleep until the next input event.
+ */
 void canopy_wait_events(void);
-
-/// @brief Block until an event occurs or the timeout is reached.
-///
-/// @param timeout_seconds Maximum number of seconds to wait before returning.
+/*
+ * Block until an event occurs or the timeout is reached.
+ */
 void canopy_wait_events_timeout(double timeout_seconds);
 
-/// @brief Manually push an event into the queue.
 void canopy_push_event(canopy_event event);
 
 
