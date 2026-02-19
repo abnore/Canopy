@@ -87,7 +87,8 @@ struct canopy_window {
 @implementation canopy_view
 
 - (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win {
-    TRACE("Initializing Canopy View with frame (%d, %d)", (int)frame.size.width, (int)frame.size.height);
+    TRACE("Initializing Canopy View with frame (%d, %d)",
+         (int)frame.size.width, (int)frame.size.height);
     self = [super initWithFrame:frame];
     if (self) {
         window = win;
@@ -116,21 +117,25 @@ struct canopy_window {
     [super updateTrackingAreas];
 }
 //----------------------------------------
-//Cookie-cutter automatic code inclusion. To get insertText to fire, we need to at least
-//pretend implement these.
+//Cookie-cutter automatic code inclusion. To get insertText to fire, we need to at
+//least pretend implement these.
 //Cocoa expects your view to pretend to support IME by implementing a handful
 //of NSTextInputClient methods. Dont implement, just stub them out to “fake it.”
 //
-- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange { return nil; }
+- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range
+                    actualRange:(nullable NSRangePointer)actualRange { return nil; }
 - (NSUInteger)characterIndexForPoint:(NSPoint)point { return 0; }
 - (void)doCommandBySelector:(nonnull SEL)selector { }
-- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange { NSRect r = {}; return r; }
+- (NSRect)firstRectForCharacterRange:(NSRange)range
+       actualRange:(nullable NSRangePointer)actualRange { NSRect r = {}; return r; }
 - (BOOL)hasMarkedText { return markedText.length > 0;; }
 - (NSRange)markedRange { return NSMakeRange(0, markedText.length); }
 - (NSRange)selectedRange { NSRange r = {}; return r; }
-- (void)setMarkedText:(nonnull id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange { }
+- (void)setMarkedText:(nonnull id)string selectedRange:(NSRange)selectedRange
+     replacementRange:(NSRange)replacementRange { }
 - (void)unmarkText { }
-- (nonnull NSArray<NSAttributedStringKey> *)validAttributesForMarkedText { return [NSArray array]; }
+- (nonnull NSArray<NSAttributedStringKey> *)validAttributesForMarkedText
+  { return [NSArray array]; }
 
 // All the code above enables this code to fire. It sends a character per event
 - (void)insertText:(nonnull id)string replacementRange:(NSRange)replacementRange
@@ -312,9 +317,9 @@ static void create_menubar(id delegate)
 
     // About
     NSMenuItem* aboutItem = [[NSMenuItem alloc]
-	    initWithTitle:[NSString stringWithFormat:@"About %@", appName]
-		   action:@selector(showCustomAboutPanel:)
-	    keyEquivalent:@""];
+        initWithTitle:[NSString stringWithFormat:@"About %@", appName]
+               action:@selector(showCustomAboutPanel:)
+        keyEquivalent:@""];
     [aboutItem setTarget:delegate];
     [appMenu addItem:aboutItem];
 
@@ -476,7 +481,7 @@ bool canopy_is_window_opaque(canopy_window *win)
 }
 void canopy_set_window_transparent(canopy_window *win, bool enable)
 {
-    if(enable) {
+    if( enable ) {
         win->is_opaque = false;
         [win->window setOpaque:NO];
         [win->window setHasShadow:NO];
@@ -491,7 +496,7 @@ void canopy_set_window_transparent(canopy_window *win, bool enable)
 }
 void canopy_free_window(canopy_window* win)
 {
-    if (!win) {
+    if( !win ) {
         WARN("Tried to free a NULL window");
         return;
     }
@@ -542,7 +547,7 @@ bool canopy_window_should_close(canopy_window *window)
 
 bool canopy_init_framebuffer(canopy_window *win)
 {
-    if(win->fb.pixels == NULL)
+    if( win->fb.pixels == NULL )
     {
         NSView* view = (NSView*)win->view;
         NSRect bounds = [view bounds];
@@ -551,7 +556,7 @@ bool canopy_init_framebuffer(canopy_window *win)
         win->fb.height = (int)bounds.size.height;
         win->fb.pitch = win->fb.width * CANOPY_BYTES_PER_PIXEL;
 
-        if (win->fb.width <= 0 || win->fb.height <= 0)
+        if( win->fb.width <= 0 || win->fb.height <= 0 )
         {
             ERROR("Invalid framebuffer size: %dx%d\n",
                         win->fb.width, win->fb.height);
@@ -559,7 +564,7 @@ bool canopy_init_framebuffer(canopy_window *win)
         }
         // Allocate buffer to match window size
         win->fb.pixels = canopy_malloc(win->fb.pitch * win->fb.height);
-        if (!win->fb.pixels) {
+        if( !win->fb.pixels ) {
             FATAL("Failed to allocate framebuffer");
             return false;
         }
@@ -574,7 +579,7 @@ bool canopy_init_framebuffer(canopy_window *win)
 void canopy_present_buffer(canopy_window *window)
 {
     @autoreleasepool {
-        if (!window->fb.pixels) {
+        if( !window->fb.pixels ) {
             ERROR("Tried to present a NULL framebuffer");
             return;
         }
@@ -611,12 +616,12 @@ framebuffer *canopy_get_framebuffer(canopy_window *window)
 
 void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
 {
-    if (!backbuffer || !backbuffer->pixels) {
+    if( !backbuffer || !backbuffer->pixels ) {
         ERROR("Backbuffer is NULL");
         return;
     }
 
-    if (!w->fb.pixels) {
+    if( !w->fb.pixels ) {
         ERROR("Framebuffer in window is NULL");
         return;
     }
@@ -633,7 +638,6 @@ void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
 /* Pump messages so that the window is shown to be responsive
  * Also needed for event handling
  * */
-
 void canopy_pump_events(void)
 {
     @autoreleasepool {
@@ -652,18 +656,16 @@ void canopy_pump_events(void)
 void canopy_post_empty_event(void)
 {
     @autoreleasepool {
-
-    NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
-                                        location:NSMakePoint(0, 0)
-                                   modifierFlags:0
-                                       timestamp:0
-                                    windowNumber:0
-                                         context:nil
-                                         subtype:0
-                                           data1:0
-                                           data2:0];
-    [NSApp postEvent:event atStart:YES];
-
+        NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                            location:NSMakePoint(0, 0)
+                                       modifierFlags:0
+                                           timestamp:0
+                                        windowNumber:0
+                                             context:nil
+                                             subtype:0
+                                               data1:0
+                                               data2:0];
+        [NSApp postEvent:event atStart:YES];
     } // autoreleasepool
 }
 
@@ -698,7 +700,7 @@ void canopy_wait_events_timeout(double timeout_seconds)
 
 void canopy_get_mouse_pos(canopy_window *window, double *x, double *y)
 {
-    if (!window || !x || !y) return;
+    if( !window || !x || !y ) return;
     *x = window->mouse_x;
     *y = window->mouse_y;
 }
