@@ -10,29 +10,16 @@
 
 ## About
 
-Canopy is a simple windowing and input library for macOS.  
-It is written in C with a native Objective-C backend and uses Cocoa directly — no third-party dependencies.
+Canopy is a simple windowing and input library for macOS.
+It is written in C with a native Objective-C backend and uses Cocoa directly. No third-party dependencies.
 
-This project is **educational and experimental** in nature. It’s not intended for production or general distribution.  
-The goal is to better understand macOS internals, event loops, and rendering pipelines by building something from scratch.
+This project is **educational and experimental** in nature.
+It’s not intended for production or anything like that.
+I just want to better understand macOS internals and build something from scratch.
 
 >[!WARNING]
 >This project is **under active development** and is evolving quickly.
 >Features, function names, and structures may change at any time. Breaking changes are likely.
----
-
-## Purpose & Design
-
--  Built for learning and exploration
--  Provides a simple window and event loop system
--  Separates the window/event layer from the rendering layer
--  Uses a CPU-driven framebuffer model (with plans for optional GPU acceleration)
--  Keeps full control of the stack — no SDL, no GLFW, no external runtime deps
-
->[!NOTE]
->Canopy is intentionally minimal and only targets macOS.
->It does not aim for cross-platform support — it’s a learning tool and experiment in Cocoa + C interop.
-
 ---
 
 
@@ -41,28 +28,16 @@ The goal is to better understand macOS internals, event loops, and rendering pip
 - [x] Create and manage native macOS windows
 - [x] Handle mouse, keyboard, and scroll input
 - [x] Provide a backbuffer and rendering pipeline
-- [x] Add a logging system
+- [x] Add a logging system (broke this out as BlackBox)
 - [ ] Enable hardware acceleration (future)
 - [ ] Add sprite support and simple 2D rendering helpers
-
-
-##  Features
-
-- Pure C API with Objective-C backend (Cocoa)
-- NSWindow + NSView handling under the hood
-- Custom backbuffer rendering
-- Input system (keyboard, mouse, scroll, modifiers)
-- Logging system with multiple levels
-- Minimal dependencies — just Cocoa
-
-
 
 
 ---
 
 ## Getting Started
 
-### 🔧 Requirements
+### Requirements
 
 - macOS (tested on Monterey and later)
 - Clang (or Xcode CLI tools)
@@ -86,6 +61,7 @@ The goal is to better understand macOS internals, event loops, and rendering pip
 *   Description:
 *       Renders a solid-colored rectangle using a manually created framebuffer.
 *       Demonstrates how to allocate, fill, and display a custom framebuffer using Canopy.
+*       Assumes installation of BlackBox
 *
 *   Controls:
 *       [Close Window] - Exit application
@@ -93,6 +69,7 @@ The goal is to better understand macOS internals, event loops, and rendering pip
 ********************************************************************************************/
 
 #include "canopy.h"
+#include <blackbox.h>
 
 #define WIDTH   400
 #define HEIGHT  400
@@ -107,10 +84,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    if (!init_log(NULL, true)) {
-        WARN("Failed to initialize logger\n");
-        return 1;
-    }
+    init_log(LOG_DEFAULT);
 
     canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
                                                 WIDTH, HEIGHT,
@@ -180,7 +154,7 @@ int main(void)
 ```
 
 
-### 🛠️ Building
+### Building
 
 Use `clang` to build:
 
@@ -194,18 +168,10 @@ Or integrate it into your own CMake or Makefile setup.
 
 ## License & Disclaimer
 
-This library is **not intended for production use**.
-This is a side project, built for fun and learning.  
-It’s focused on **clarity**, **control**, and **simplicity**, not on portability or production features.
+This is a side project, built for fun and learning.
 
-If you’re interested in how to work directly with Cocoa and C — or building games and apps from the metal up — Canopy might be a good reference.
-It was created as a personal side project for learning and experimentation.
+If you’re interested in how to work directly with Cocoa and C,
+Canopy might be a good reference.
 
--  Designed to be **dependency-free**
--  Built for **educational purposes**
--  Meant to help explore **event-driven architecture** and **graphics**
--  Aims to eventually support **hardware acceleration**, while keeping the CPU path simple and accessible
-
-Use it, break it, learn from it.  
-Feel free to fork and experiment — just don’t expect it to replace SDL, Raylib or GLFW (yet).
-
+Use it, break it, learn from it.
+Feel free to fork and experiment, just don’t expect it to replace SDL, Raylib or GLFW (yet)!
