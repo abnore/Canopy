@@ -1,21 +1,22 @@
-/*******************************************************************************************
+/*******************************************************************************
 *
 *   CANOPY [Example] - Moving Bitmap (Bouncing Background)
 *
 *   Description:
-*       Loads two bmp images using Picasso, and animates one of them bouncing across the screen.
-*       Demonstrates event handling, bitmap blitting, and backbuffer swapping with Canopy.
+*       Loads two bmp images using Picasso, and animates one of them bouncing
+*       across the screen. Demonstrates event handling, bitmap blitting, and
+*       backbuffer swapping with Canopy.
 *
 *   Controls:
 *       [Mouse Click / Drag / Scroll] - Prints mouse interactions
 *       [Keyboard] - Logs key presses
 *       [Close Window] - Exit application
 *
-********************************************************************************************/
+*******************************************************************************/
 
 #include "canopy.h"
 #include "picasso.h"
-
+#include <blackbox.h>
 
 #define WIDTH   800
 #define HEIGHT  600
@@ -23,7 +24,7 @@
 int main(void)
 {
     // Initialization
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     if (!init_log(false, true, true)) {
         WARN("Failed to setup logger");
     }
@@ -36,10 +37,10 @@ int main(void)
     DEBUG("Testing log");
     TRACE("Testing log");
 
-    canopy_window* win = canopy_create_window("Canopy + Picasso - Bouncing Bitmap",
+    Window* win = create_window("Canopy + Picasso - Bouncing Bitmap",
                                                 WIDTH, HEIGHT,                                                CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
-    canopy_set_icon("assets/icon.png");
+    set_icon("assets/icon.png");
 
     picasso_image* bmp_example = picasso_load_bmp("assets/sample.bmp");
     picasso_image* bmp_mine    = picasso_load_bmp("assets/background.bmp");
@@ -55,30 +56,33 @@ int main(void)
     int sprite_width  = bmp_mine->width;
     int sprite_height = bmp_mine->height;
 
-    canopy_init_timer();
-    canopy_set_fps(60);
-    //--------------------------------------------------------------------------------------
+    init_timer();
+    set_fps(60);
+    //--------------------------------------------------------------------------
 
     // Main Game Loop
-    while (!canopy_window_should_close(win))
+    while (!window_should_close(win))
     {
         // Input
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
         canopy_event event;
-        while (canopy_poll_event(&event)) {
+        while (poll_event(&event)) {
             if (event.type == CANOPY_EVENT_MOUSE) {
                 switch (event.mouse.action) {
                     case CANOPY_MOUSE_PRESS:
-                        TRACE("Mouse press (button %d) at (%d, %d)", event.mouse.button, event.mouse.x, event.mouse.y);
+                        TRACE("Mouse press (button %d) at (%d, %d)",
+                                event.mouse.button, event.mouse.x, event.mouse.y);
                         break;
                     case CANOPY_MOUSE_RELEASE:
-                        TRACE("Mouse release (button %d) at (%d, %d)", event.mouse.button, event.mouse.x, event.mouse.y);
+                        TRACE("Mouse release (button %d) at (%d, %d)",
+                                event.mouse.button, event.mouse.x, event.mouse.y);
                         break;
                     case CANOPY_MOUSE_DRAG:
                         TRACE("Mouse drag at (%d, %d)", event.mouse.x, event.mouse.y);
                         break;
                     case CANOPY_MOUSE_SCROLL:
-                        TRACE("Mouse scroll (x: %.2f, y: %.2f)", event.mouse.scroll_x, event.mouse.scroll_y);
+                        TRACE("Mouse scroll (x: %.2f, y: %.2f)",
+                                event.mouse.scroll_x, event.mouse.scroll_y);
                         break;
                     case CANOPY_MOUSE_ENTER:
                         TRACE("Mouse entered window");
@@ -89,15 +93,18 @@ int main(void)
                     default: break;
                 }
             }
-            else if (event.type == CANOPY_EVENT_KEY && event.key.action == CANOPY_KEY_PRESS) {
-                TRACE("Key down %s (code: %d)", canopy_key_to_string(event.key.keycode), event.key.keycode);
+            else if (event.type == CANOPY_EVENT_KEY && event.key.action ==
+                    CANOPY_KEY_PRESS) {
+                TRACE("Key down %s (code: %d)",
+                        canopy_key_to_string(event.key.keycode),
+                        event.key.keycode);
             }
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
 
         // Draw
-        //----------------------------------------------------------------------------------
-        if (canopy_should_render_frame())
+        //----------------------------------------------------------------------
+        if (should_render_frame())
         {
             picasso_clear_backbuffer(bf);
 
@@ -111,19 +118,19 @@ int main(void)
             picasso_blit_bitmap(bf, bmp_example, 0, 0);
             picasso_blit_bitmap(bf, bmp_mine,    xpos, ypos);
 
-            canopy_swap_backbuffer(win, (framebuffer*)bf);
-            canopy_present_buffer(win);
+            swap_backbuffer(win, (framebuffer*)bf);
+            present_buffer(win);
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
     }
 
     // De-Initialization
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     // In order to get the entire history, it is important that the log
     // is the last thing to be shutdown
     shutdown_log();
     // **Everything after this point does not get logged**
-    canopy_free_window(win);
+    free_window(win);
     picasso_destroy_backbuffer(bf);
 
     if (bmp_example) {
@@ -135,7 +142,6 @@ int main(void)
         free(bmp_mine->pixels);
         free(bmp_mine);
     }
-    //--------------------------------------------------------------------------------------
-
+    //--------------------------------------------------------------------------
     return 0;
 }

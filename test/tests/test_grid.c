@@ -1,6 +1,7 @@
 #include <math.h>
 #include "canopy.h"
 #include "picasso.h"
+#include <blackbox.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -74,19 +75,20 @@ void draw_rotated_grid(picasso_backbuffer *bf) {
 }
 
 int main(void) {
-    canopy_init_timer();
-    canopy_window *win = canopy_create_window("Rotated Grid", WIDTH, HEIGHT, CANOPY_WINDOW_STYLE_DEFAULT);
+    init_timer();
+    Window *win = create_window("Rotated Grid", WIDTH, HEIGHT,
+            CANOPY_WINDOW_STYLE_DEFAULT);
     picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
 
-    while (!canopy_window_should_close(win)) {
-        if (canopy_should_render_frame()) {
+    while (!window_should_close(win)) {
+        if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
             draw_rotated_grid(bf);
-            canopy_swap_backbuffer(win, (framebuffer *)bf);
-            canopy_present_buffer(win);
+            swap_backbuffer(win, (framebuffer *)bf);
+            present_buffer(win);
         }
     }
 
-    canopy_free_window(win);
+    free_window(win);
     return 0;
 }

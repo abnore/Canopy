@@ -12,7 +12,7 @@
 ********************************************************************************************/
 
 #include "canopy.h"
-
+#include <blackbox.h>
 #define WIDTH   400
 #define HEIGHT  400
 #define PIXELS  WIDTH*HEIGHT
@@ -31,24 +31,24 @@ int main(void)
         return 1;
     }
 
-    canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
+    Window* win = create_window("Canopy - Custom Framebuffer",
                                                 WIDTH, HEIGHT,
                                                 CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
-    //canopy_set_window_transparent(win, true);
-    canopy_init_timer();
-    canopy_set_fps(60); // default is 60
+    //set_window_transparent(win, true);
+    init_timer();
+    set_fps(60); // default is 60
 
-    framebuffer *fb = canopy_get_framebuffer(win);
+    framebuffer *fb = get_framebuffer(win);
     //--------------------------------------------------------------------------------------
 
     // Main Game Loop
-    while (!canopy_window_should_close(win))
+    while (!window_should_close(win))
     {
         // Update
         //----------------------------------------------------------------------------------
         canopy_event event;
-        while (canopy_poll_event(&event))
+        while (poll_event(&event))
         {
             // Handle events (mouse, keyboard, etc.)
             //INFO("An event was triggered!");
@@ -57,7 +57,7 @@ int main(void)
 
         // Draw
         //----------------------------------------------------------------------------------
-        if (canopy_should_render_frame())
+        if (should_render_frame())
         {
             // Fill the framebuffer with its color
             for (int i = 0; i < PIXELS; ++i) {
@@ -80,15 +80,15 @@ int main(void)
 
             // Do other stuff graphicly here
 
-            //canopy_swap_backbuffer(win,fb);    // Switch pointers of custom framebuffer
-            canopy_present_buffer(win);         // Present on screen
+            //swap_backbuffer(win,fb);    // Switch pointers of custom framebuffer
+            present_buffer(win);         // Present on screen
         }
         //----------------------------------------------------------------------------------
     }
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    canopy_free_window(win);
+    free_window(win);
     shutdown_log();
     //--------------------------------------------------------------------------------------
 

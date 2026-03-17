@@ -1,6 +1,7 @@
 #include "canopy.h"
 #include "picasso.h"
 #include <math.h>
+#include <blackbox.h>
 
 #define WIDTH   800
 #define HEIGHT  600
@@ -116,22 +117,22 @@ int main(void)
         WARN("Failed to setup logger");
     }
 
-    canopy_window* win = canopy_create_window("Canopy + Picasso - Rainbow Triangle",
+    Window* win = create_window("Canopy + Picasso - Rainbow Triangle",
                                               WIDTH, HEIGHT,
                                               CANOPY_WINDOW_STYLE_TITLED |
                                               CANOPY_WINDOW_STYLE_CLOSABLE);
-    canopy_set_icon("assets/picasso.png");
+    set_icon("assets/picasso.png");
 
     picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
-    canopy_init_timer();
-    canopy_set_fps(60);
+    init_timer();
+    set_fps(60);
 
     // Base triangle to rotate
     picasso_point3 p = {220, 190, 600, 370, 260, 410};
 
-    while (!canopy_window_should_close(win))
+    while (!window_should_close(win))
     {
-        if (canopy_should_render_frame())
+        if (should_render_frame())
         {
             picasso_clear_backbuffer(bf);
             draw_perspective_grid(bf, 40, (color){0, 255, 255, 255});
@@ -156,12 +157,12 @@ int main(void)
             picasso_draw_line_aa(bf, rotated.x2, rotated.y2, rotated.x3, rotated.y3, green);
             picasso_draw_line_aa(bf, rotated.x3, rotated.y3, rotated.x1, rotated.y1, blue);
 
-            canopy_swap_backbuffer(win, (framebuffer*)bf);
-            canopy_present_buffer(win);
+            swap_backbuffer(win, (framebuffer*)bf);
+            present_buffer(win);
         }
     }
 
-    canopy_free_window(win);
+    free_window(win);
     picasso_destroy_backbuffer(bf);
     shutdown_log();
 

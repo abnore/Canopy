@@ -1,4 +1,4 @@
-#include "canopy_time.h"
+#include "canopy.h"
 
 #include <blackbox.h>
 #include <mach/mach_time.h>
@@ -16,7 +16,7 @@ static struct {
     double delta_time;
 } canopy_timer;
 
-void canopy_init_timer(void)
+void init_timer(void)
 {
     kern_return_t result = mach_timebase_info(&canopy_timer.timebase);
 
@@ -29,14 +29,14 @@ void canopy_init_timer(void)
                                (double)canopy_timer.timebase.denom) / 1e9;
 
     canopy_timer.target_frame_time = 1.f / DEFAULT_FPS;  // Default to 60 FPS
-    canopy_timer.last_frame_time = canopy_get_time();  // Initialize clock
+    canopy_timer.last_frame_time = get_time();  // Initialize clock
 
     INFO("Timer initialized");
     DEBUG("Timer conversion factor: %.12f", canopy_timer.to_seconds);
     TRACE("Default target frame time: %.6f seconds, %d FPS", canopy_timer.target_frame_time, DEFAULT_FPS);
 }
 
-double canopy_get_time(void)
+double get_time(void)
 {
     uint64_t ticks = mach_absolute_time();
     double seconds = (double)ticks * canopy_timer.to_seconds;
@@ -45,7 +45,7 @@ double canopy_get_time(void)
     return seconds;
 }
 
-uint64_t canopy_get_time_ns(void)
+uint64_t get_time_ns(void)
 {
     uint64_t ticks = mach_absolute_time();
     uint64_t ns = ticks * canopy_timer.timebase.numer / canopy_timer.timebase.denom;
@@ -54,12 +54,12 @@ uint64_t canopy_get_time_ns(void)
     return ns;
 }
 
-double canopy_get_delta_time(void)
+double get_delta_time(void)
 {
     return canopy_timer.delta_time;
 }
 
-void canopy_set_fps(int fps)
+void set_fps(int fps)
 {
     if (fps < 1) {
         WARN("FPS below 1 specified, clamping to 1");
@@ -70,16 +70,16 @@ void canopy_set_fps(int fps)
     INFO("Target FPS set to %d (%.6f s per frame)", fps, canopy_timer.target_frame_time);
 }
 
-int canopy_get_fps(void)
+int get_fps(void)
 {
     int fps = (int)(1.0 / canopy_timer.target_frame_time);
     TRACE("Current FPS setting: %d", fps);
     return fps;
 }
 
-int canopy_should_render_frame(void)
+int should_render_frame(void)
 {
-    double now = canopy_get_time();
+    double now = get_time();
     double elapsed = now - canopy_timer.last_frame_time;
 
     if (elapsed >= canopy_timer.target_frame_time) {

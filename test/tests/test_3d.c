@@ -2,7 +2,7 @@
 
 #include "canopy.h"
 #include "picasso.h"
-
+#include <blackbox.h>
 //#define FACTOR 100
 //#define WIDTH (16*FACTOR)
 //#define HEIGHT (9*FACTOR)
@@ -22,10 +22,10 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt);
 int main(void)
 {
     init_log(NO_LOG, LOG_COLORS, STDERR_TO_TERMINAL);
-    canopy_init_timer();
-    canopy_set_fps(60);
+    init_timer();
+    set_fps(60);
 
-    canopy_window *win = canopy_create_window("3D test",
+    Window *win = create_window("3D test",
                         WIDTH, HEIGHT,
                         CANOPY_WINDOW_STYLE_TITLED |
                         CANOPY_WINDOW_STYLE_CLOSABLE);
@@ -33,22 +33,22 @@ int main(void)
     picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
 
     float angle = 0;
-    while(!canopy_window_should_close(win))
+    while(!window_should_close(win))
     {
         // Set up and input
         // ----------------
-        if(canopy_should_render_frame())
+        if(should_render_frame())
         {
             picasso_clear_backbuffer(bf);
 
-            render3d(bf, &angle, canopy_get_delta_time());
+            render3d(bf, &angle, get_delta_time());
 
-            canopy_swap_backbuffer(win, (framebuffer*)bf);
-            canopy_present_buffer(win);
+            swap_backbuffer(win, (framebuffer*)bf);
+            present_buffer(win);
         }
     }
 
-    canopy_free_window(win);
+    free_window(win);
     shutdown_log();
     return 0;
 }

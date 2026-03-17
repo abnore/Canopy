@@ -1,23 +1,6 @@
-#include "common.h"
+#include "canopy.h"
 
-void *canopy_calloc(size_t count, size_t size)
-{
-    return calloc(count, size);
-}
-void canopy_free(void *ptr)
-{
-    free(ptr);
-}
-void *canopy_malloc(size_t size)
-{
-    return malloc(size);
-}
-void *canopy_realloc(void *ptr, size_t size)
-{
-    return realloc(ptr, size);
-}
-
-const char* canopy_key_to_string(keys key)
+const char* canopy_key_to_string(canopy_key key)
 {
     switch (key) {
         // Alphabet
@@ -158,4 +141,3 @@ const char* canopy_key_to_string(keys key)
         default: return "undefined key";
     }
 }
-

@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#import <blackbox.h>
 #import "canopy.h"
 
 //----------------------------------------
@@ -22,16 +23,16 @@ struct canopy_window {
 //----------------------------------------
 @interface canopy_delegate : NSObject <NSWindowDelegate>
 {
-    canopy_window* window;
+    Window* window;
 }
 
-- (instancetype)init_with_canopy_window:(canopy_window*)init_window;
+- (instancetype)init_with_canopy_window:(Window*)init_window;
 
 @end
 //----------------------------------------
 @implementation canopy_delegate
 
-- (instancetype)init_with_canopy_window:(canopy_window*)init_window
+- (instancetype)init_with_canopy_window:(Window*)init_window
 {
     TRACE("Creating Canopy Delegate");
     self = [super init];
@@ -76,17 +77,17 @@ struct canopy_window {
 //----------------------------------------
 @interface canopy_view : NSView <NSTextInputClient>
 {
-    canopy_window* window;
+    Window* window;
     NSMutableAttributedString* markedText;
 }
 
-- (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win;
+- (instancetype)init_with_frame:(NSRect)frame window:(Window*)win;
 
 @end
 //----------------------------------------
 @implementation canopy_view
 
-- (instancetype)init_with_frame:(NSRect)frame window:(canopy_window*)win {
+- (instancetype)init_with_frame:(NSRect)frame window:(Window*)win {
     TRACE("Initializing Canopy View with frame (%d, %d)",
          (int)frame.size.width, (int)frame.size.height);
     self = [super initWithFrame:frame];
@@ -157,7 +158,7 @@ struct canopy_window {
     memcpy(e.text.utf8, utf8data.bytes, utf8data.length);
     e.text.utf8[utf8data.length] = '\0'; // Null-terminate
 
-    canopy_push_event(e);
+    push_event(e);
 }
 
 //----------------------------------------
@@ -196,7 +197,7 @@ struct canopy_window {
         break;
     }
 
-    canopy_push_event(e);
+    push_event(e);
 }
 
 /* ------------  Press events ------------*/
@@ -258,7 +259,7 @@ struct canopy_window {
         .key.is_repeat = [event isARepeat] ? 1 : 0
     };
 
-    canopy_push_event(e);
+    push_event(e);
 }
 
 //- (void)keyDown:(NSEvent *)event {
@@ -290,7 +291,7 @@ struct canopy_window {
         .key.is_repeat = 0
     };
 
-    canopy_push_event(e);
+    push_event(e);
     prevFlags = newFlags;
 }
 
@@ -388,7 +389,7 @@ static void create_menubar(id delegate)
 //--------------------------------------------------------------------------------
 
 /* Window functions */
-canopy_window* canopy_create_window(const char* title,
+Window* create_window(const char* title,
                                     int width,
                                     int height,
                                     canopy_window_style flags)
@@ -400,10 +401,10 @@ canopy_window* canopy_create_window(const char* title,
 
         TRACE("Creating window: %dx%d \"%s\"", width, height, title);
 
-        canopy_window* win = canopy_malloc(sizeof(canopy_window));
+        Window* win = canopy_malloc(sizeof(Window));
 
         if(!win) {
-            FATAL("Failed to allocate canopy_window");
+            FATAL("Failed to allocate Window");
             return NULL;
 
         }
@@ -443,20 +444,20 @@ canopy_window* canopy_create_window(const char* title,
         win->pixel_ratio = view.window.backingScaleFactor;
         INFO("Content Scale is : %i, not supported yet", win->pixel_ratio);
 
-        canopy_init_framebuffer(win);
+        init_framebuffer(win);
 
         [win->window makeFirstResponder: win->view];
         win->should_close = false;
 
         INFO("Created window: \"%s\" (%dx%d)", title, width, height);
 
-        canopy_post_empty_event();
+        post_empty_event();
 
         return win;
     }
 }
 
-void canopy_set_icon(const char* filepath)
+void set_icon(const char* filepath)
 {
     if (!filepath) {
         WARN("No icon filepath provided");
@@ -475,11 +476,11 @@ void canopy_set_icon(const char* filepath)
     }
 }
 
-bool canopy_is_window_opaque(canopy_window *win)
+bool is_window_opaque(Window *win)
 {
     return [win->view is_opaque];
 }
-void canopy_set_window_transparent(canopy_window *win, bool enable)
+void set_window_transparent(Window *win, bool enable)
 {
     if( enable ) {
         win->is_opaque = false;
@@ -494,7 +495,7 @@ void canopy_set_window_transparent(canopy_window *win, bool enable)
         TRACE("Window opaque");
     }
 }
-void canopy_free_window(canopy_window* win)
+void free_window(Window* win)
 {
     if( !win ) {
         WARN("Tried to free a NULL window");
@@ -526,7 +527,7 @@ void canopy_free_window(canopy_window* win)
         }
 
         // (Optional) Let Cocoa flush pending events
-        canopy_pump_events();
+        pump_events();
 
         DEBUG("Window closed and resources cleaned up");
     }
@@ -534,18 +535,18 @@ void canopy_free_window(canopy_window* win)
     canopy_free(win);
 }
 
-void canopy_set_window_should_close(canopy_window *window)
+void set_window_should_close(Window *window)
 {
     window->should_close = true;
 }
 
-bool canopy_window_should_close(canopy_window *window)
+bool window_should_close(Window *window)
 {
-    canopy_pump_events();  // Keep the UI alive
+    pump_events();  // Keep the UI alive
     return window->should_close;
 }
 
-bool canopy_init_framebuffer(canopy_window *win)
+bool init_framebuffer(Window *win)
 {
     if( win->fb.pixels == NULL )
     {
@@ -576,7 +577,7 @@ bool canopy_init_framebuffer(canopy_window *win)
     return true;
 }
 
-void canopy_present_buffer(canopy_window *window)
+void present_buffer(Window *window)
 {
     @autoreleasepool {
         if( !window->fb.pixels ) {
@@ -609,12 +610,12 @@ void canopy_present_buffer(canopy_window *window)
 }
 
 
-framebuffer *canopy_get_framebuffer(canopy_window *window)
+framebuffer *get_framebuffer(Window *window)
 {
     return &window->fb;
 }
 
-void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
+void swap_backbuffer(Window *w, framebuffer *backbuffer)
 {
     if( !backbuffer || !backbuffer->pixels ) {
         ERROR("Backbuffer is NULL");
@@ -638,7 +639,7 @@ void canopy_swap_backbuffer(canopy_window *w, framebuffer *backbuffer)
 /* Pump messages so that the window is shown to be responsive
  * Also needed for event handling
  * */
-void canopy_pump_events(void)
+void pump_events(void)
 {
     @autoreleasepool {
         NSEvent* event;
@@ -653,7 +654,7 @@ void canopy_pump_events(void)
         }
     } // autoreleasepool
 }
-void canopy_post_empty_event(void)
+void post_empty_event(void)
 {
     @autoreleasepool {
         NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
@@ -669,7 +670,7 @@ void canopy_post_empty_event(void)
     } // autoreleasepool
 }
 
-void canopy_wait_events(void)
+void wait_events(void)
 {
     @autoreleasepool {
         NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -682,7 +683,7 @@ void canopy_wait_events(void)
         }
     }
 }
-void canopy_wait_events_timeout(double timeout_seconds)
+void wait_events_timeout(double timeout_seconds)
 {
     @autoreleasepool {
         NSDate* timeout_date = [NSDate dateWithTimeIntervalSinceNow:timeout_seconds];
@@ -698,7 +699,7 @@ void canopy_wait_events_timeout(double timeout_seconds)
     }
 }
 
-void canopy_get_mouse_pos(canopy_window *window, double *x, double *y)
+void get_mouse_pos(Window *window, double *x, double *y)
 {
     if( !window || !x || !y ) return;
     *x = window->mouse_x;

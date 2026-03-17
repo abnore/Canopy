@@ -1,4 +1,4 @@
-/*******************************************************************************************
+/*******************************************************************************
 *
 *   CANOPY [Example] - Picasso Color conversion testing
 *
@@ -7,11 +7,12 @@
 *   Controls:
 *       [Close Window] - Exit application
 *
-********************************************************************************************/
+*******************************************************************************/
 #include "picasso.h"
 #include "canopy.h"
 
 #include <math.h>
+#include <blackbox.h>
 
 #define WIDTH 1200
 #define HEIGHT 800
@@ -23,7 +24,7 @@ int main(void)
         return 1;
     }
 
-    canopy_window* win = canopy_create_window("Color conversion",
+    Window* win = create_window("Color conversion",
                                               WIDTH, HEIGHT,
                                               CANOPY_WINDOW_STYLE_TITLED |
                                               CANOPY_WINDOW_STYLE_CLOSABLE);
@@ -63,8 +64,8 @@ int main(void)
     });
 
 
-    canopy_init_timer();
-    canopy_set_fps(24);
+    init_timer();
+    set_fps(24);
 
 int SPACING = 10;
 
@@ -108,8 +109,8 @@ picasso_rect bottom_right_dst = {
     img_width,
     img_height
 };
-    while (!canopy_window_should_close(win)) {
-        if (canopy_should_render_frame()) {
+    while (!window_should_close(win)) {
+        if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
 
             // Draw static center circle
@@ -123,12 +124,12 @@ picasso_rect bottom_right_dst = {
 
 
             // Present the frame
-            canopy_swap_backbuffer(win, (framebuffer*)bf);
-            canopy_present_buffer(win);
+            swap_backbuffer(win, (framebuffer*)bf);
+            present_buffer(win);
         }
     }
 
-    canopy_free_window(win);
+    free_window(win);
     shutdown_log();
     return 0;
 }

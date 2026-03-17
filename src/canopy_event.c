@@ -1,15 +1,15 @@
 #include "canopy.h"
 
-static canopy_callback_key key_callback = NULL;
-static canopy_callback_mouse mouse_callback = NULL;
-static canopy_callback_text text_callback = NULL;
+static callback_key key_callback = NULL;
+static callback_mouse mouse_callback = NULL;
+static callback_text text_callback = NULL;
 
 // FIFO ring buffer
 static canopy_event event_queue[CANOPY_MAX_EVENTS];
 static int event_head = 0;
 static int event_tail = 0;
 
-void canopy_push_event(canopy_event ev)
+void push_event(canopy_event ev)
 {
     int next = (event_tail + 1) % CANOPY_MAX_EVENTS;
     if (next != event_head) { // only add if queue not full
@@ -18,7 +18,7 @@ void canopy_push_event(canopy_event ev)
     }
 }
 
-bool canopy_poll_event(canopy_event* out_event)
+bool poll_event(canopy_event* out_event)
 {
     if (event_head == event_tail) return false;
     *out_event = event_queue[event_head];
@@ -26,10 +26,10 @@ bool canopy_poll_event(canopy_event* out_event)
     return true;
 }
 
-void canopy_dispatch_events(canopy_window *w)
+void dispatch_events(Window *w)
 {
     canopy_event e;
-    while (canopy_poll_event(&e)) {
+    while (poll_event(&e)) {
         switch (e.type) {
             case CANOPY_EVENT_NONE: break;
             case CANOPY_EVENT_TEXT:
@@ -48,14 +48,14 @@ void canopy_dispatch_events(canopy_window *w)
     }
 }
 
-void canopy_set_callback_key(canopy_callback_key cb) {
+void set_callback_key(callback_key cb) {
     key_callback = cb;
 }
 
-void canopy_set_callback_mouse( canopy_callback_mouse cb) {
+void set_callback_mouse(callback_mouse cb) {
     mouse_callback = cb;
 }
 
-void canopy_set_callback_text( canopy_callback_text cb) {
+void set_callback_text(callback_text cb) {
     text_callback = cb;
 }

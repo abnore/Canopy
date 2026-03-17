@@ -2,6 +2,7 @@
 #include "stb_truetype.h"
 #include "picasso.h"
 #include "canopy.h"
+#include <blackbox.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -9,8 +10,8 @@
 int main(void) {
     init_log(LOG_DEFAULT);
 
-    canopy_init_timer();
-    canopy_window *window = canopy_create_window("Font Test", WIDTH, HEIGHT,
+    init_timer();
+    Window *window = create_window("Font Test", WIDTH, HEIGHT,
                                             CANOPY_WINDOW_STYLE_DEFAULT);
     picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
 
@@ -43,8 +44,8 @@ int main(void) {
     color c = PURPLE;
     int x = 10;  // starting x pos
 
-    while (!canopy_window_should_close(window)) {
-        if (canopy_should_render_frame()) {
+    while (!window_should_close(window)) {
+        if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
 
             x = 10;  // reset per frame
@@ -68,8 +69,8 @@ int main(void) {
                             *p, *(p + 1)) * scale);
                 }
             }
-            canopy_swap_backbuffer(window, (framebuffer *)bf);
-            canopy_present_buffer(window);
+            swap_backbuffer(window, (framebuffer *)bf);
+            present_buffer(window);
         }
     }
     picasso_reader_free(reader);
