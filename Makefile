@@ -3,22 +3,27 @@
 # ============================================================
 
 LIBNAME     = canopy
-SRC         = src/canopy.m src/canopy_event.c src/canopy_time.c src/common.c
-HDR         = canopy.h
+TARGET      = lib$(LIBNAME).dylib
 
 PREFIX      = /usr/local
 INCLUDEDIR  = $(PREFIX)/include
 LIBDIR      = $(PREFIX)/lib
 
-TARGET      = lib$(LIBNAME).dylib
-
 CC          = clang
-CFLAGS      = -Wall -Wextra -O2 -fpic -I.
-LDFLAGS     = -dynamiclib -install_name $(LIBDIR)/$(TARGET)
 
-# ============================================================
-# Build
-# ============================================================
+SRC         = src/canopy.m \
+              src/canopy_event.c \
+              src/canopy_input.c \
+              src/canopy_memory.c \
+              src/canopy_time.c
+
+HDR         = canopy.h
+
+CFLAGS      = -Wall -Wextra -O2 -fPIC -I.
+LDFLAGS     = -dynamiclib \
+              -install_name $(LIBDIR)/$(TARGET) \
+              -framework Cocoa \
+			  -lblackbox
 
 all: $(TARGET)
 
@@ -27,13 +32,8 @@ $(TARGET): $(SRC) $(HDR)
 	@$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SRC)
 	@echo "    - Built $(TARGET)"
 
-# ============================================================
-# Install
-# ============================================================
-
 install: $(TARGET)
 	@echo "==> Installing Canopy..."
-	@echo "    - Ensuring directories exist"
 	@mkdir -p $(INCLUDEDIR)
 	@mkdir -p $(LIBDIR)
 	@echo "    - Installing header -> $(INCLUDEDIR)/$(HDR)"
@@ -42,21 +42,11 @@ install: $(TARGET)
 	@sudo cp $(TARGET) $(LIBDIR)/
 	@echo "==> Install complete."
 
-# ============================================================
-# Uninstall
-# ============================================================
-
 uninstall:
 	@echo "==> Uninstalling Canopy..."
-	@echo "    - Removing header"
 	@sudo rm -f $(INCLUDEDIR)/$(HDR)
-	@echo "    - Removing library"
 	@sudo rm -f $(LIBDIR)/$(TARGET)
 	@echo "==> Uninstall complete."
-
-# ============================================================
-# Clean
-# ============================================================
 
 clean:
 	@echo "==> Cleaning build artifacts"
@@ -64,4 +54,3 @@ clean:
 	@echo "    ✓ Clean"
 
 .PHONY: all install uninstall clean
-

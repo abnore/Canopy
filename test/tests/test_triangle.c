@@ -91,7 +91,7 @@ void draw_perspective_grid(picasso_backbuffer* bf, int spacing, color grid_color
     int bottom_y = bf->height;
 
     // 1. Draw vertical perspective lines from bottom to vanishing point
-    for (int x = -bf->width; x < bf->width * 2; x += spacing)
+    for (int x = -bf->width; x < (int)bf->width * 2; x += spacing)
     {
         picasso_draw_line(bf, x, bottom_y, center_x, horizon_y, grid_color);
     }

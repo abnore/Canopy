@@ -1,15 +1,16 @@
-/*******************************************************************************************
+/*******************************************************************************
 *
 *   CANOPY [Example] - Custom Framebuffer Rendering
 *
 *   Description:
 *       Renders a solid-colored rectangle using a manually created framebuffer.
-*       Demonstrates how to allocate, fill, and display a custom framebuffer using Canopy.
+*       Demonstrates how to allocate, fill, and display a custom framebuffer
+*       using Canopy.
 *
 *   Controls:
 *       [Close Window] - Exit application
 *
-********************************************************************************************/
+*******************************************************************************/
 
 #include "canopy.h"
 #include <blackbox.h>
@@ -17,7 +18,8 @@
 #define HEIGHT  400
 #define PIXELS  WIDTH*HEIGHT
 
-// Phthalo Blue https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
+// Phthalo Blue
+// https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
 // little endian, abgr (rgba backwards)
 #define PHTALO_BLUE 0xff890f00
 #define CANOPY_BLUE 0xffff0000
@@ -25,7 +27,7 @@
 int main(void)
 {
     // Initialization
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     if (!init_log(false, true, true)) {
         WARN("Failed to initialize logger\n");
         return 1;
@@ -40,23 +42,23 @@ int main(void)
     set_fps(60); // default is 60
 
     framebuffer *fb = get_framebuffer(win);
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
 
     // Main Game Loop
     while (!window_should_close(win))
     {
         // Update
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
         canopy_event event;
         while (poll_event(&event))
         {
             // Handle events (mouse, keyboard, etc.)
             //INFO("An event was triggered!");
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
 
         // Draw
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
         if (should_render_frame())
         {
             // Fill the framebuffer with its color
@@ -83,14 +85,14 @@ int main(void)
             //swap_backbuffer(win,fb);    // Switch pointers of custom framebuffer
             present_buffer(win);         // Present on screen
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
     }
 
     // De-Initialization
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     free_window(win);
     shutdown_log();
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
 
     return 0;
 }

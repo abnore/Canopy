@@ -265,7 +265,12 @@ struct canopy_window {
 //- (void)keyDown:(NSEvent *)event {
 //    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
 //}
+// - (void)keyDown:(NSEvent *)event {
+//     [self interpretKeyEvents:@[event]];
+// }
+// Combining them to get the text AND the key
 - (void)keyDown:(NSEvent *)event {
+    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
     [self interpretKeyEvents:@[event]];
 }
 - (void)keyUp:(NSEvent *)event {
