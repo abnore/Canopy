@@ -10,17 +10,26 @@ int main(void) {
     init_log(LOG_DEFAULT);
 
     canopy_init_timer();
-    canopy_window *window = canopy_create_window("Font Test", WIDTH, HEIGHT, CANOPY_WINDOW_STYLE_DEFAULT);
+    canopy_window *window = canopy_create_window("Font Test", WIDTH, HEIGHT,
+                                            CANOPY_WINDOW_STYLE_DEFAULT);
     picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
 
     // Load font
-    const char *font_path = "/Users/andreas/personalC/Picasso/test/fonts/Alegreya,Libre_Baskerville/Libre_Baskerville/LibreBaskerville-Regular.ttf";
+    const char *font_path = "fonts/LibreBaskerville-Regular.ttf";
+
     picasso_reader *reader = picasso_read_entire_file(font_path);
-    if (!reader) FATAL("Failed to read font file");
+    if (!reader) {
+        FATAL("Failed to read font file");
+        exit(1);
+    }
 
     stbtt_fontinfo font;
-    if (!stbtt_InitFont(&font, reader->ptr, stbtt_GetFontOffsetForIndex(reader->ptr, 0)))
+    if (!stbtt_InitFont(&font, reader->ptr,
+        stbtt_GetFontOffsetForIndex(reader->ptr, 0)))
+    {
         FATAL("Failed to init font");
+        exit(1);
+    }
 
     float size = 64.0f;
     float scale = stbtt_ScaleForPixelHeight(&font, size);
@@ -42,9 +51,10 @@ int main(void) {
             for (const char *p = text; *p; ++p) {
                 int w, h, xoff, yoff;
                 uint8_t *bitmap = stbtt_GetCodepointBitmap(
-                    &font, 0, scale, *p, &w, &h, &xoff, &yoff);
+                        &font, 0, scale, *p, &w, &h, &xoff, &yoff);
 
-                draw_bitmap_to_backbuffer(bf, bitmap, w, h, x + xoff, 300 - baseline + yoff, c);
+                draw_bitmap_to_backbuffer(bf, bitmap, w, h, x + xoff, 300 -
+                        baseline + yoff, c);
                 stbtt_FreeBitmap(bitmap, NULL);
 
                 // advance x position
@@ -54,15 +64,14 @@ int main(void) {
 
                 // optional kerning
                 if (*(p + 1)) {
-                    x += (int)(stbtt_GetCodepointKernAdvance(&font, *p, *(p + 1)) * scale);
+                    x += (int)(stbtt_GetCodepointKernAdvance(&font,
+                            *p, *(p + 1)) * scale);
                 }
             }
-
             canopy_swap_backbuffer(window, (framebuffer *)bf);
             canopy_present_buffer(window);
         }
     }
-
     picasso_reader_free(reader);
     shutdown_log();
     return 0;
