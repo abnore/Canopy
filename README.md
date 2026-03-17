@@ -10,16 +10,18 @@
 
 ## About
 
-Canopy is a simple windowing and input library for macOS.
-It is written in C with a native Objective-C backend and uses Cocoa directly. No third-party dependencies.
+Canopy is a simple windowing and input library for macOS. It is written in C
+with a native Objective-C backend and uses Cocoa directly. No third-party
+dependencies.
 
-This project is **educational and experimental** in nature.
-It’s not intended for production or anything like that.
-I just want to better understand macOS internals and build something from scratch.
+This project is **educational and experimental** in nature. It’s not intended
+for production or anything like that. I just want to better understand macOS
+internals and build something from scratch.
 
 >[!WARNING]
 >This project is **under active development** and is evolving quickly.
->Features, function names, and structures may change at any time. Breaking changes are likely.
+>Features, function names, and structures may change at any time. Breaking
+>changes are likely.
 ---
 
 
@@ -43,6 +45,15 @@ I just want to better understand macOS internals and build something from scratc
 - Clang (or Xcode CLI tools)
 - C99-compatible compiler
 
+### Installation
+
+```bash
+git clone <link>
+make install
+```
+
+And it will be installed on your system.
+
 ###  Minimal Example
 ## Example Output
 
@@ -54,28 +65,29 @@ I just want to better understand macOS internals and build something from scratc
 
 ---
 ```c
-/*******************************************************************************************
+/*******************************************************************************
 *
 *   CANOPY [Example] - Custom Framebuffer Rendering
 *
 *   Description:
 *       Renders a solid-colored rectangle using a manually created framebuffer.
-*       Demonstrates how to allocate, fill, and display a custom framebuffer using Canopy.
-*       Assumes installation of BlackBox
+*       Demonstrates how to allocate, fill, and display a custom framebuffer.
+*       Assumes installation of Canopy and BlackBox
 *
 *   Controls:
 *       [Close Window] - Exit application
 *
-********************************************************************************************/
+*******************************************************************************/
 
-#include "canopy.h"
+#include <canopy.h>
 #include <blackbox.h>
 
 #define WIDTH   400
 #define HEIGHT  400
 #define PIXELS  WIDTH*HEIGHT
 
-// Phthalo Blue https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
+// Phthalo Blue
+// https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
 // little endian, abgr (rgba backwards)
 #define PHTALO_BLUE 0xff890f00
 #define CANOPY_BLUE 0xffff0000
@@ -83,14 +95,12 @@ I just want to better understand macOS internals and build something from scratc
 int main(void)
 {
     // Initialization
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     init_log(LOG_DEFAULT);
 
-    canopy_window* win = canopy_create_window("Canopy - Custom Framebuffer",
-                                                WIDTH, HEIGHT,
-                                                CANOPY_WINDOW_STYLE_TITLED |
-                                                CANOPY_WINDOW_STYLE_CLOSABLE);
-    canopy_init_timer();
+    Window* win = create_window("Canopy - Custom Framebuffer", WIDTH, HEIGHT,
+                                CANOPY_WINDOW_STYLE_DEFAULT);
+    init_timer();
     //canopy_set_fps(60); // default is 60
 
     framebuffer fb;
@@ -106,23 +116,28 @@ int main(void)
         return 1;
     }
 
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
 
     // Main Game Loop
-    while (!canopy_window_should_close(win))
+    while (!window_should_close(win))
     {
         // Update
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
+        /* `dispatch_events(win)` allows you to create custom callbacks for both
+         * key, mouse and text events that handles everything. If not doing it
+         * manually like this also works
+         */
+        pump_events();
         canopy_event event;
-        while (canopy_poll_event(&event))
+        while (poll_event(&event))
         {
             // Handle events (mouse, keyboard, etc.)
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
 
         // Draw
-        //----------------------------------------------------------------------------------
-        if (canopy_should_render_frame())
+        //----------------------------------------------------------------------
+        if (should_render_frame())
         {
             // Fill the framebuffer with its clear color
             for (int i = 0; i < PIXELS; ++i) {
@@ -136,18 +151,18 @@ int main(void)
 
             // Do other stuff graphicly here
 
-            canopy_swap_backbuffer(win,&fb);    // Switch pointers of custom framebuffer
-            canopy_present_buffer(win);         // Present on screen
+            swap_backbuffer(win,&fb);   // Switch pointers of custom framebuffer
+            present_buffer(win);        // Present on screen
         }
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------
     }
 
     // De-Initialization
-    //--------------------------------------------------------------------------------------
-    canopy_free(fb.pixels);
-    canopy_free_window(win);
+    //--------------------------------------------------------------------------
+    free(fb.pixels);
+    free_window(win);
     shutdown_log();
-    //--------------------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
 
     return 0;
 }
@@ -160,8 +175,7 @@ Use `clang` to build:
 
 ```bash
 clang main.c src/canopy.m src/canopy_event.c src/canopy_time.c \
-     src/common.c logger/logger.c \
-     -framework Cocoa -I. -Ilib -Ilogger -o bin/Test
+     -framework Cocoa -I. -Ilib -lblackbox -o bin/test
 ```
 Or integrate it into your own CMake or Makefile setup.
 
