@@ -1,7 +1,7 @@
 //===================================================================================
 // Minimal Windowing & Input Library for macOS
 //
-// Author: Andreas Nore (github@abnore)
+// Author: Andreas Nore (github.com/abnore)
 //===================================================================================
 
 #ifndef CANOPY_H
@@ -45,13 +45,13 @@ typedef enum {
         I don’t need to know what it looks like yet — just that it exists.”
 
     This allows:
-        * Declaring pointers to it (canopy_window*)
-        * Passing it to, and returning it from, functions
+        - Declaring pointers to it (canopy_window*)
+        - Passing it to, and returning it from, functions
 
     But you cannot:
-        * Dereference it
-        * Access its members
-        * Allocate it directly (its size is unknown)
+        - Dereference it
+        - Access its members
+        - Allocate it directly (its size is unknown)
 
     In other words: it's opaque on purpose. Treat it with respect.
     Don't access directly.

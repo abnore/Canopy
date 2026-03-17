@@ -2,21 +2,21 @@
 # Makefile for Canopy + Picasso Tests
 #----------------------------------------
 
-test_dir    = test
+test_dir    = tests
 bin_dir     = bin
 src_dir     = src
 lib_dir     = lib
-inc_dir     = include
+inc_dir     = ../lib
 
 cc          = clang
-cc_flags    = -framework Cocoa -I. -I$(lib_dir) -I$(src_dir) -I$(inc_dir) -Wall -Wextra
+cc_flags    = -framework Cocoa -I. -I.. -I$(lib_dir) -I$(src_dir) -I$(inc_dir) -Wall -Wextra
 ld_flags    = -lblackbox
 
 # Common sources used by ALL tests
-src_common  = $(src_dir)/canopy.m \
-              $(src_dir)/canopy_event.c \
-              $(src_dir)/canopy_time.c \
-              $(src_dir)/common.c \
+src_common  = ../$(src_dir)/canopy.m \
+              ../$(src_dir)/canopy_event.c \
+              ../$(src_dir)/canopy_time.c \
+              ../$(src_dir)/common.c \
               $(src_dir)/bmp.c \
               $(src_dir)/picasso.c \
               $(src_dir)/picasso_icc_profiles.c

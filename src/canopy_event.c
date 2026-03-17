@@ -55,6 +55,7 @@ void canopy_set_callback_key(canopy_callback_key cb) {
 void canopy_set_callback_mouse( canopy_callback_mouse cb) {
     mouse_callback = cb;
 }
+
 void canopy_set_callback_text( canopy_callback_text cb) {
     text_callback = cb;
 }

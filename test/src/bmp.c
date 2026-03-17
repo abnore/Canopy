@@ -288,10 +288,10 @@ bmp *picasso_create_bmp_from_rgba(uint8_t *pixel_data, int width, int height, in
         ERROR("Invalid BMP creation params: %dx%d", width, height);
         return NULL;
     }
-    bool all_alpha_zero = (channels == 4);             // I only care if alpha exist
+    bool all_alpha_zero = (channels == 4);          // I only care if alpha exist
     int abs_height = PICASSO_ABS(height);
-    int row_stride = width * channels;                         // tightly packed source
-    int row_size   = ((row_stride + 3) / 4) * 4;               // padded BMP row size
+    int row_stride = width * channels;              // tightly packed source
+    int row_size   = ((row_stride + 3) / 4) * 4;    // padded BMP row size
     size_t pixel_array_size = (size_t)row_size * abs_height;
 
     bmp *b = picasso_malloc(sizeof(bmp));
@@ -649,12 +649,11 @@ picasso_image *picasso_load_bmp(const char *filename)
 
     color c;
     foreach_pixel_u8(img, {
-        if (bmp.comp == BI_BITFIELDS && bmp.channels == 4)
-        {
-            decode_and_write_pixel_32bit(c, pixel); // Decode from 32-bit pixel using bitmasks
+        if (bmp.comp == BI_BITFIELDS && bmp.channels == 4) {
+            // Decode from 32-bit pixel using bitmasks
+            decode_and_write_pixel_32bit(c, pixel);
             if (pixel[3] != 0) bmp.set_all_alpha = false;
-        } else
-        {
+        } else {
             PICASSO_SWAP(pixel[0], pixel[2]); // BGR → RGB
         }
     });
@@ -663,8 +662,8 @@ picasso_image *picasso_load_bmp(const char *filename)
     {
         TRACE("All alpha values were zero — setting to 0xff");
         foreach_pixel_u8(img, {
-                pixel[3] = 0xFF;
-                });
+            pixel[3] = 0xFF;
+        });
     }
     return img;
 }
