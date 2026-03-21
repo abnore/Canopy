@@ -2,9 +2,9 @@
 #import <blackbox.h>
 #import "canopy.h"
 
-//----------------------------------------
+//------------------------------------------------------------------------------
 // Struct to hold macOS window internals
-//----------------------------------------
+//------------------------------------------------------------------------------
 struct canopy_window {
     id window;
     id view;
@@ -18,9 +18,9 @@ struct canopy_window {
     void *user_data; // support for passing data for callbacks
 };
 
-//----------------------------------------
+//------------------------------------------------------------------------------
 // Window Delegate
-//----------------------------------------
+//------------------------------------------------------------------------------
 @interface canopy_delegate : NSObject <NSWindowDelegate>
 {
     Window* window;
@@ -29,7 +29,7 @@ struct canopy_window {
 - (instancetype)init_canopy_window:(Window*)init_window;
 
 @end
-//----------------------------------------
+//------------------------------------------------------------------------------
 @implementation canopy_delegate
 
 - (instancetype)init_canopy_window:(Window*)init_window
@@ -72,22 +72,25 @@ struct canopy_window {
     TRACE("About panel shown");
 }
 @end
-//----------------------------------------
+//------------------------------------------------------------------------------
 // View
-//----------------------------------------
+//------------------------------------------------------------------------------
 @interface canopy_view : NSView <NSTextInputClient>
 {
     Window* window;
     NSMutableAttributedString* markedText;
 }
 
-- (instancetype)init_with_frame:(NSRect)frame window:(Window*)win;
+- (instancetype)init_with_frame:(NSRect)frame
+                         window:(Window*)win;
 
 @end
-//----------------------------------------
+//------------------------------------------------------------------------------
 @implementation canopy_view
 
-- (instancetype)init_with_frame:(NSRect)frame window:(Window*)win {
+- (instancetype)init_with_frame:(NSRect)frame
+                         window:(Window*)win
+{
     TRACE("Initializing Canopy View with frame (%d, %d)",
          (int)frame.size.width, (int)frame.size.height);
     self = [super initWithFrame:frame];
@@ -117,29 +120,30 @@ struct canopy_window {
     [self addTrackingArea:area];
     [super updateTrackingAreas];
 }
-//----------------------------------------
-//Cookie-cutter automatic code inclusion. To get insertText to fire, we need to at
-//least pretend implement these.
-//Cocoa expects your view to pretend to support IME by implementing a handful
-//of NSTextInputClient methods. Dont implement, just stub them out to “fake it.”
-//
-- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range
-                    actualRange:(nullable NSRangePointer)actualRange { return nil; }
-- (NSUInteger)characterIndexForPoint:(NSPoint)point { return 0; }
-- (void)doCommandBySelector:(nonnull SEL)selector { }
-- (NSRect)firstRectForCharacterRange:(NSRange)range
-       actualRange:(nullable NSRangePointer)actualRange { NSRect r = {}; return r; }
-- (BOOL)hasMarkedText { return markedText.length > 0;; }
-- (NSRange)markedRange { return NSMakeRange(0, markedText.length); }
-- (NSRange)selectedRange { NSRange r = {}; return r; }
+//------------------------------------------------------------------------------
+//Cookie-cutter automatic code inclusion. To get insertText to fire, we need to
+//at least pretend implement these. Cocoa expects your view to pretend to
+//support IME by implementing a handful of NSTextInputClient methods. Dont
+//implement, just stub them out to “fake it.”
+//------------------------------------------------------------------------------
+- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)ra
+                actualRange:(nullable NSRangePointer)actualRange {return nil;}
+- (NSUInteger)characterIndexForPoint:(NSPoint)point {return 0;}
+- (void)doCommandBySelector:(nonnull SEL)selector{}
+- (NSRect)firstRectForCharacterRange:(NSRange)ra
+    actualRange:(nullable NSRangePointer)actualRange{ NSRect r = {}; return r;}
+- (BOOL)hasMarkedText {return markedText.length > 0;}
+- (NSRange)markedRange {return NSMakeRange(0, markedText.length);}
+- (NSRange)selectedRange {NSRange r = {}; return r;}
 - (void)setMarkedText:(nonnull id)string selectedRange:(NSRange)selectedRange
-     replacementRange:(NSRange)replacementRange { }
-- (void)unmarkText { }
+     replacementRange:(NSRange)replacementRange {}
+- (void)unmarkText {}
 - (nonnull NSArray<NSAttributedStringKey> *)validAttributesForMarkedText
-  { return [NSArray array]; }
+    {return [NSArray array];}
 
 // All the code above enables this code to fire. It sends a character per event
-- (void)insertText:(nonnull id)string replacementRange:(NSRange)replacementRange
+- (void)insertText:(nonnull id)string
+  replacementRange:(NSRange)replacementRange
 {
     NSString *character;
 
@@ -161,17 +165,17 @@ struct canopy_window {
     push_event(e);
 }
 
-//----------------------------------------
+//------------------------------------------------------------------------------
 // Standard mouse event handler
 // so that i can add as many as i want later
-//----------------------------------------
+//------------------------------------------------------------------------------
 - (void)push_mouse_event_with_action:(canopy_action_mouse)action
                                event:(NSEvent *)event
                              scrollX:(float)sx
                              scrollY:(float)sy
 {
-    NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
-
+    NSPoint pos = [self convertPoint:[event locationInWindow]
+                            fromView:nil];
     window->mouse_x = pos.x;
     window->mouse_y = pos.y;
 
@@ -202,36 +206,66 @@ struct canopy_window {
 
 /* ------------  Press events ------------*/
 - (void)mouseDown:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)rightMouseDown:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)otherMouseDown:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_PRESS
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 /* ------------ Release events ------------*/
 - (void)mouseUp:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)rightMouseUp:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)otherMouseUp:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_RELEASE
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 /* ----------- Drag/move events -----------*/
 - (void)mouseDragged:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)rightMouseDragged:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)otherMouseDragged:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_DRAG
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 - (void)mouseMoved:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_MOVE event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_MOVE
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 /* ------------ Scroll events ------------ */
 - (void)scrollWheel:(NSEvent *)event {
@@ -242,14 +276,21 @@ struct canopy_window {
 }
 /* -------- Enter and exit events -------- */
 - (void)mouseEntered:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_ENTER event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_ENTER
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 
 - (void)mouseExited:(NSEvent *)event {
-    [self push_mouse_event_with_action:CANOPY_MOUSE_EXIT event:event scrollX:0 scrollY:0];
+    [self push_mouse_event_with_action:CANOPY_MOUSE_EXIT
+                                 event:event
+                               scrollX:0
+                               scrollY:0];
 }
 /* ------------- Key events -------------- */
-- (void)push_key_event_with_action:(canopy_action_key)action event:(NSEvent *)event {
+- (void)push_key_event_with_action:(canopy_action_key)action
+                             event:(NSEvent *)event {
     canopy_event e = {
         .type = CANOPY_EVENT_KEY,
         .key.action = action,
@@ -269,11 +310,13 @@ struct canopy_window {
 // }
 // Combining them to get the text AND the key
 - (void)keyDown:(NSEvent *)event {
-    [self push_key_event_with_action:CANOPY_KEY_PRESS event:event];
+    [self push_key_event_with_action:CANOPY_KEY_PRESS
+                               event:event];
     [self interpretKeyEvents:@[event]];
 }
 - (void)keyUp:(NSEvent *)event {
-    [self push_key_event_with_action:CANOPY_KEY_RELEASE event:event];
+    [self push_key_event_with_action:CANOPY_KEY_RELEASE
+                               event:event];
 }
 
 - (void)flagsChanged:(NSEvent *)event {
@@ -316,7 +359,9 @@ static void create_menubar(id delegate)
     [NSApp setMainMenu:menubar];
 
     // App menu item (blank title)
-    NSMenuItem* appMenuItem = [menubar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenuItem* appMenuItem = [menubar addItemWithTitle:@""
+                                                 action:NULL
+                                          keyEquivalent:@""];
 
     // Application menu
     NSMenu* appMenu = [[NSMenu alloc] init];
@@ -328,46 +373,41 @@ static void create_menubar(id delegate)
         keyEquivalent:@""];
     [aboutItem setTarget:delegate];
     [appMenu addItem:aboutItem];
-
     [appMenu addItem:[NSMenuItem separatorItem]];
-
     // Services
     NSMenu* servicesMenu = [[NSMenu alloc] init];
     [NSApp setServicesMenu:servicesMenu];
-    [[appMenu addItemWithTitle:@"Services" action:NULL keyEquivalent:@""] setSubmenu:servicesMenu];
-
+    [[appMenu addItemWithTitle:@"Services"
+                        action:NULL
+                 keyEquivalent:@""] setSubmenu:servicesMenu];
     [appMenu addItem:[NSMenuItem separatorItem]];
-
     // Hide, Hide Others, Show All
     [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", appName]
                        action:@selector(hide:)
                 keyEquivalent:@"h"];
     [[appMenu addItemWithTitle:@"Hide Others"
                         action:@selector(hideOtherApplications:)
-                 keyEquivalent:@"h"]
-        setKeyEquivalentModifierMask:(NSEventModifierFlagOption | NSEventModifierFlagCommand)];
-
+                 keyEquivalent:@"h"] setKeyEquivalentModifierMask:
+                 (NSEventModifierFlagOption |
+                  NSEventModifierFlagCommand)];
     [appMenu addItemWithTitle:@"Show All"
                        action:@selector(unhideAllApplications:)
                 keyEquivalent:@""];
-
     [appMenu addItem:[NSMenuItem separatorItem]];
-
     // Quit
     [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", appName]
                        action:@selector(terminate:)
                 keyEquivalent:@"q"];
-
     [appMenuItem setSubmenu:appMenu];
-
     // Cocoa semi-private fix to set this as the real app menu
     SEL setAppleMenuSelector = NSSelectorFromString(@"setAppleMenu:");
     if ([NSApp respondsToSelector:setAppleMenuSelector]) {
-        [NSApp performSelector:setAppleMenuSelector withObject:appMenu];
+           [NSApp performSelector:setAppleMenuSelector withObject:appMenu];
     }
-
     // Add "Window" menu for things like Minimize/Zoom/Fullscreen
-    NSMenuItem* windowMenuItem = [menubar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenuItem* windowMenuItem = [menubar addItemWithTitle:@""
+                                                    action:NULL
+                                             keyEquivalent:@""];
     NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
     [windowMenuItem setSubmenu:windowMenu];
     [NSApp setWindowsMenu:windowMenu];
@@ -385,32 +425,17 @@ static void create_menubar(id delegate)
     [windowMenu addItem:[NSMenuItem separatorItem]];
     [[windowMenu addItemWithTitle:@"Enter Full Screen"
                            action:@selector(toggleFullScreen:)
-                    keyEquivalent:@"f"]
-     setKeyEquivalentModifierMask:NSEventModifierFlagControl | NSEventModifierFlagCommand];
+                    keyEquivalent:@"f"] setKeyEquivalentModifierMask:
+                    NSEventModifierFlagControl |
+                    NSEventModifierFlagCommand];
 }
 
 //--------------------------------------------------------------------------------
 // Public API Implementation - C Wrappers
 //--------------------------------------------------------------------------------
 static bool init_framebuffer(Window *window);
-/* To support retina we need a conversion function from points to pixels.
- * The backing buffer needs to be in pixels, and if every points is 2*2 pixels,
- * we need to convert it. This will then check the scale factor and update the
- * ratio correctly */
-static void update_backing_metrics(Window *window)
-{
-    NSView *view = (NSView *)window->view;
-    NSRect bounds = [view bounds];
-    NSRect backing = [view convertRectToBacking:bounds];
+static void update_backing_metrics(Window *window);
 
-    window->pixel_ratio = [[view window] backingScaleFactor];
-    window->fb.width = (uint32_t)backing.size.width;
-    window->fb.height = (uint32_t)backing.size.height;
-
-    if ([view layer]) {
-        [[view layer] setContentsScale:window->pixel_ratio];
-    }
-}
 /* Window functions */
 Window* create_window(char* title, int width, int height, window_style flags)
 {
@@ -440,13 +465,13 @@ Window* create_window(char* title, int width, int height, window_style flags)
         window->fb.pitch = 0;
         window->delegate = [[canopy_delegate alloc] init_canopy_window:window];
         window->view = [[canopy_view alloc]
-                init_with_frame: NSMakeRect(0, 0, width, height)
-                         window: window];
+            init_with_frame: NSMakeRect(0, 0, width, height)
+                     window: window];
         window->window = [[NSWindow alloc]
-             initWithContentRect: NSMakeRect(0, 0, width, height)
-                       styleMask: (NSWindowStyleMask)flags
-                         backing: NSBackingStoreBuffered
-                           defer: NO];
+            initWithContentRect: NSMakeRect(0, 0, width, height)
+                      styleMask: (NSWindowStyleMask)flags
+                        backing: NSBackingStoreBuffered
+                          defer: NO];
 
         create_menubar(window->delegate);
 
@@ -488,7 +513,6 @@ void set_icon(const char* filepath)
         return;
     };
 
-
     NSString* path = [NSString stringWithUTF8String:filepath];
     NSImage* icon = [[NSImage alloc] initWithContentsOfFile:path];
 
@@ -497,26 +521,6 @@ void set_icon(const char* filepath)
         INFO("Set application icon from path: %s", filepath);
     } else {
         ERROR("Failed to load icon from path: %s", filepath);
-    }
-}
-
-bool is_window_opaque(Window *window)
-{
-    return [window->view isOpaque];
-}
-void set_window_transparent(Window *window, bool enable)
-{
-    if( enable ) {
-        window->is_opaque = false;
-        [window->window setOpaque:NO];
-        [window->window setHasShadow:NO];
-        [window->window setBackgroundColor:[NSColor clearColor]];
-        TRACE("Window transparent");
-    } else {
-        window->is_opaque = true;
-        [window->window setOpaque:YES];
-        [window->window setHasShadow:YES];
-        TRACE("Window opaque");
     }
 }
 void free_window(Window* window)
@@ -550,15 +554,15 @@ void free_window(Window* window)
     canopy_free(window);
 }
 
-void set_window_should_close(Window *window)
+double get_window_scale(Window *window)                     // 1.0, 2.0, etc
 {
-    window->should_close = true;
+    return window->pixel_ratio;
 }
-
-bool window_should_close(Window *window)
+void get_window_size(Window *window, int *w, int *h)       // points
 {
-    pump_events();  // Keep the UI alive
-    return window->should_close;
+    if (!window) return;
+    *w = window->width_points;
+    *h = window->height_points;
 }
 
 /*   <https://www.glfw.org/docs/3.3/group__window.html>
@@ -572,49 +576,48 @@ void set_window_user_data(Window *window, void *user_data)
 {
     window->user_data = user_data;
 }
-
 void *get_window_user_data(Window *window)
 {
     return window->user_data;
 }
-
-/* Properly handle content scaling for fidelity display (i.e. retina display)
- *  <https://developer.apple.com/library/archive/documentation/GraphicsAnimation/
- *   Conceptual/HighResolutionOSX/Explained/Explained.html>
- *
- * We need to store and convert the difference in points and pixels, and alloc
- * the correct size */
-static bool init_framebuffer(Window *window)
+bool window_should_close(Window *window)
 {
-    if (!window)
-        return false;
-
-    if (window->fb.pixels == NULL) {
-        update_backing_metrics(window);
-        INFO("Content scale is: %.2f", window->pixel_ratio);
-
-        window->fb.pitch = window->fb.width * CANOPY_BYTES_PER_PIXEL;
-
-        if (window->fb.width == 0 || window->fb.height == 0) {
-            ERROR("Invalid framebuffer size: %ux%u",
-                  window->fb.width, window->fb.height);
-            return false;
-        }
-
-        window->fb.pixels = canopy_malloc(window->fb.pitch * window->fb.height);
-        if (!window->fb.pixels) {
-            FATAL("Failed to allocate framebuffer");
-            return false;
-        }
-
-        TRACE("Initialized framebuffer: %ux%u (pitch %u, scale %.2f)",
-              window->fb.width, window->fb.height,
-              window->fb.pitch, window->pixel_ratio);
-    }
-
-    return true;
+    pump_events();  // Keep the UI alive
+    return window->should_close;
 }
-
+void set_window_should_close(Window *window)
+{
+    window->should_close = true;
+}
+bool is_window_opaque(Window *window)
+{
+    return [window->view isOpaque];
+}
+void set_window_transparent(Window *window, bool enable)
+{
+    if( enable ) {
+        window->is_opaque = false;
+        [window->window setOpaque:NO];
+        [window->window setHasShadow:NO];
+        [window->window setBackgroundColor:[NSColor clearColor]];
+        TRACE("Window transparent");
+    } else {
+        window->is_opaque = true;
+        [window->window setOpaque:YES];
+        [window->window setHasShadow:YES];
+        TRACE("Window opaque");
+    }
+}
+framebuffer *get_framebuffer(Window *window)
+{
+    return &window->fb;
+}
+void get_framebuffer_size(Window *window, int *width, int *height) // pixels
+{
+    if (!window) return;
+    *width = window->fb.width;
+    *height = window->fb.height;
+}
 void present_buffer(Window *window)
 {
     @autoreleasepool {
@@ -624,47 +627,25 @@ void present_buffer(Window *window)
         }
 
         NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
-                initWithBitmapDataPlanes: (uint8_t**)&window->fb.pixels
-                              pixelsWide: window->fb.width
-                              pixelsHigh: window->fb.height
-                           bitsPerSample: 8
-                         samplesPerPixel: 4
-                                hasAlpha: YES
-                                isPlanar: NO
-                          colorSpaceName: NSDeviceRGBColorSpace
-                             bytesPerRow: window->fb.pitch
-                            bitsPerPixel: 32]
-                            autorelease];
+            initWithBitmapDataPlanes: (uint8_t**)&window->fb.pixels
+                          pixelsWide: window->fb.width
+                          pixelsHigh: window->fb.height
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: window->fb.pitch
+                        bitsPerPixel: 32]
+                        autorelease];
 
         NSImage *image = [[[NSImage alloc]
-                            initWithSize:NSMakeSize(window->width_points,
-                                                    window->height_points)]
-                            autorelease];
+            initWithSize:NSMakeSize(window->width_points, window->height_points)]
+            autorelease];
 
         [image addRepresentation: rep];
         [(NSView*)window->view layer].contents = image;
     }
-}
-
-double get_window_scale(Window *window)                     // 1.0, 2.0, etc
-{
-    return window->pixel_ratio;
-}
-void get_window_size(Window *window, int *w, int *h)       // points
-{
-    if (!window) return;
-    *w = window->width_points;
-    *h = window->height_points;
-}
-void get_framebuffer_size(Window *window, int *width, int *height) // pixels
-{
-    if (!window) return;
-    *width = window->fb.width;
-    *height = window->fb.height;
-}
-framebuffer *get_framebuffer(Window *window)
-{
-    return &window->fb;
 }
 void swap_backbuffer(Window *window, framebuffer *backbuffer)
 {
@@ -685,6 +666,16 @@ void swap_backbuffer(Window *window, framebuffer *backbuffer)
     uint32_t *temp = window->fb.pixels;
     window->fb.pixels = backbuffer->pixels;
     backbuffer->pixels = temp;
+}
+
+/* Event system */
+
+
+void get_mouse_pos(Window *window, double *x, double *y)
+{
+    if( !window || !x || !y ) return;
+    *x = window->mouse_x;
+    *y = window->mouse_y;
 }
 
 /* Pump messages so that the window is shown to be responsive
@@ -750,9 +741,59 @@ void wait_events_timeout(double timeout_seconds)
     }
 }
 
-void get_mouse_pos(Window *window, double *x, double *y)
+/* static helper function */
+
+/* To support retina we need a conversion function from points to pixels.
+ * The backing buffer needs to be in pixels, and if every points is 2*2 pixels,
+ * we need to convert it. This will then check the scale factor and update the
+ * ratio correctly */
+static void update_backing_metrics(Window *window)
 {
-    if( !window || !x || !y ) return;
-    *x = window->mouse_x;
-    *y = window->mouse_y;
+    NSView *view = (NSView *)window->view;
+    NSRect bounds = [view bounds];
+    NSRect backing = [view convertRectToBacking:bounds];
+
+    window->pixel_ratio = [[view window] backingScaleFactor];
+    window->fb.width = (uint32_t)backing.size.width;
+    window->fb.height = (uint32_t)backing.size.height;
+
+    if ([view layer]) {
+        [[view layer] setContentsScale:window->pixel_ratio];
+    }
+}
+/* Properly handle content scaling for fidelity display (i.e. retina display)
+ *  <https://developer.apple.com/library/archive/documentation/
+ *   GraphicsAnimation/Conceptual/HighResolutionOSX/Explained/Explained.html>
+ *
+ * We need to store and convert the difference in points and pixels, and alloc
+ * the correct size */
+static bool init_framebuffer(Window *window)
+{
+    if (!window)
+        return false;
+
+    if (window->fb.pixels == NULL) {
+        update_backing_metrics(window);
+        INFO("Content scale is: %.2f", window->pixel_ratio);
+
+        window->fb.pitch = window->fb.width * CANOPY_BYTES_PER_PIXEL;
+
+        if (window->fb.width == 0 || window->fb.height == 0) {
+            ERROR("Invalid framebuffer size: %ux%u",
+                  window->fb.width, window->fb.height);
+            return false;
+        }
+
+        window->fb.pixels = canopy_malloc(window->fb.pitch * window->fb.height);
+        if (!window->fb.pixels) {
+            FATAL("Failed to allocate framebuffer");
+            return false;
+        }
+
+        TRACE("Initialized framebuffer: %ux%u (pitch %u, scale %.2f)",
+              window->fb.width, window->fb.height,
+              window->fb.pitch, window->pixel_ratio);
+    }
+
+    return true;
 }
