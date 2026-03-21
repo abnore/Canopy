@@ -1,5 +1,6 @@
 #include "canopy.h"
 
+#ifndef CUSTOM_ALLOCATOR
 /* Custom allocators can come here, wrappers over stdlib for now.*/
 void *canopy_calloc(size_t count, size_t size)
 {
@@ -17,3 +18,4 @@ void *canopy_realloc(void *ptr, size_t size)
 {
     return realloc(ptr, size);
 }
+#endif

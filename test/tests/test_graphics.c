@@ -91,10 +91,8 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------
-    if (!init_log(NO_LOG, LOG_COLORS, STDERR_TO_LOG)) {
-        WARN("Failed to initialize logger");
-        return 1;
-    }
+    init_log(LOG_DEFAULT);
+
     Window* win = create_window("Canopy + Picasso - Blitting",
                                                 WIDTH, HEIGHT,
                                                 CANOPY_WINDOW_STYLE_TITLED |
@@ -102,7 +100,7 @@ int main(void)
     set_icon("assets/icon.svg");
     //set_window_transparent(win, true);
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer* bf = picasso_create_backbuffer(win);
     if (!bf) {
         ERROR("Failed to create backbuffer");
         return 1;

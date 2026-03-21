@@ -4,7 +4,8 @@ static callback_key key_callback = NULL;
 static callback_mouse mouse_callback = NULL;
 static callback_text text_callback = NULL;
 
-// FIFO ring buffer
+/* FIFO ring buffer without having linked lists. Using two pointers to head and
+ * tail in a fixed array */
 static canopy_event event_queue[CANOPY_MAX_EVENTS];
 static int event_head = 0;
 static int event_tail = 0;
@@ -48,14 +49,6 @@ void dispatch_events(Window *w)
     }
 }
 
-void set_callback_key(callback_key cb) {
-    key_callback = cb;
-}
-
-void set_callback_mouse(callback_mouse cb) {
-    mouse_callback = cb;
-}
-
-void set_callback_text(callback_text cb) {
-    text_callback = cb;
-}
+void set_callback_key(callback_key cb) { key_callback = cb; }
+void set_callback_text(callback_text cb) { text_callback = cb; }
+void set_callback_mouse(callback_mouse cb) { mouse_callback = cb; }

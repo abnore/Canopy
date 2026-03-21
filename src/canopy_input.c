@@ -1,6 +1,6 @@
 #include "canopy.h"
 
-const char* canopy_key_to_string(canopy_key key)
+const char* key_to_string(canopy_key key)
 {
     switch (key) {
         // Alphabet

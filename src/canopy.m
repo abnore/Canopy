@@ -10,12 +10,12 @@ struct canopy_window {
     id view;
     id delegate;
     framebuffer fb;
-
+    double pixel_ratio; // support of high spi/retina screen
+    uint32_t width_points, height_points; // Docs say points not pixels
     bool should_close;
     bool is_opaque;
-    uint32_t pixel_ratio; // support of high spi/retina screen
-
     double mouse_x, mouse_y;
+    void *user_data; // support for passing data for callbacks
 };
 
 //----------------------------------------
@@ -26,13 +26,13 @@ struct canopy_window {
     Window* window;
 }
 
-- (instancetype)init_with_canopy_window:(Window*)init_window;
+- (instancetype)init_canopy_window:(Window*)init_window;
 
 @end
 //----------------------------------------
 @implementation canopy_delegate
 
-- (instancetype)init_with_canopy_window:(Window*)init_window
+- (instancetype)init_canopy_window:(Window*)init_window
 {
     TRACE("Creating Canopy Delegate");
     self = [super init];
@@ -96,10 +96,10 @@ struct canopy_window {
     }
     return self;
 }
-
+// AppKit overrides
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
-- (BOOL)is_opaque { return window->is_opaque;}
+- (BOOL)isOpaque { return window->is_opaque;}
 - (void)updateTrackingAreas
 { // To receive mouse entered and exit we setup a tracking area
     NSTrackingAreaOptions opts =  NSTrackingMouseEnteredAndExited |
@@ -166,9 +166,9 @@ struct canopy_window {
 // so that i can add as many as i want later
 //----------------------------------------
 - (void)push_mouse_event_with_action:(canopy_action_mouse)action
-                           event:(NSEvent *)event
-                         scrollX:(float)sx
-                         scrollY:(float)sy
+                               event:(NSEvent *)event
+                             scrollX:(float)sx
+                             scrollY:(float)sy
 {
     NSPoint pos = [self convertPoint:[event locationInWindow] fromView:nil];
 
@@ -248,7 +248,6 @@ struct canopy_window {
 - (void)mouseExited:(NSEvent *)event {
     [self push_mouse_event_with_action:CANOPY_MOUSE_EXIT event:event scrollX:0 scrollY:0];
 }
-
 /* ------------- Key events -------------- */
 - (void)push_key_event_with_action:(canopy_action_key)action event:(NSEvent *)event {
     canopy_event e = {
@@ -278,12 +277,13 @@ struct canopy_window {
 }
 
 - (void)flagsChanged:(NSEvent *)event {
-    static NSEventModifierFlags prevFlags = 0;
-    NSEventModifierFlags newFlags = [event modifierFlags];
-    NSEventModifierFlags changed = prevFlags ^ newFlags;
+    static NSEventModifierFlags prev_flags = 0;
+    NSEventModifierFlags new_flags = [event modifierFlags];
+    NSEventModifierFlags changed = prev_flags ^ new_flags;
 
     int keycode = (int)[event keyCode];
-    canopy_action_key action = (newFlags & changed) ? CANOPY_KEY_PRESS : CANOPY_KEY_RELEASE;
+    canopy_action_key action = (new_flags & changed) ?
+                CANOPY_KEY_PRESS : CANOPY_KEY_RELEASE;
 
     // Filter out bogus values
     if (changed == 0) return;
@@ -292,12 +292,12 @@ struct canopy_window {
         .type = CANOPY_EVENT_KEY,
         .key.action = action,
         .key.keycode = keycode,
-        .key.modifiers = (int)newFlags,
+        .key.modifiers = (int)new_flags,
         .key.is_repeat = 0
     };
 
     push_event(e);
-    prevFlags = newFlags;
+    prev_flags = new_flags;
 }
 
 @end
@@ -392,12 +392,27 @@ static void create_menubar(id delegate)
 //--------------------------------------------------------------------------------
 // Public API Implementation - C Wrappers
 //--------------------------------------------------------------------------------
+static bool init_framebuffer(Window *window);
+/* To support retina we need a conversion function from points to pixels.
+ * The backing buffer needs to be in pixels, and if every points is 2*2 pixels,
+ * we need to convert it. This will then check the scale factor and update the
+ * ratio correctly */
+static void update_backing_metrics(Window *window)
+{
+    NSView *view = (NSView *)window->view;
+    NSRect bounds = [view bounds];
+    NSRect backing = [view convertRectToBacking:bounds];
 
+    window->pixel_ratio = [[view window] backingScaleFactor];
+    window->fb.width = (uint32_t)backing.size.width;
+    window->fb.height = (uint32_t)backing.size.height;
+
+    if ([view layer]) {
+        [[view layer] setContentsScale:window->pixel_ratio];
+    }
+}
 /* Window functions */
-Window* create_window(const char* title,
-                                    int width,
-                                    int height,
-                                    canopy_window_style flags)
+Window* create_window(char* title, int width, int height, window_style flags)
 {
     @autoreleasepool {
         [NSApplication sharedApplication];
@@ -406,59 +421,63 @@ Window* create_window(const char* title,
 
         TRACE("Creating window: %dx%d \"%s\"", width, height, title);
 
-        Window* win = canopy_malloc(sizeof(Window));
+        Window* window = canopy_malloc(sizeof(Window));
 
-        if(!win) {
+        if(!window) {
             FATAL("Failed to allocate Window");
             return NULL;
-
         }
 
-        win->delegate = [[canopy_delegate alloc] init_with_canopy_window:win];
-
-        win->view = [[canopy_view alloc]
+        window->width_points = width;
+        window->height_points = height;
+        window->pixel_ratio = 1.0;
+        window->mouse_x = 0;
+        window->mouse_y = 0;
+        window->user_data = NULL;
+        window->fb.pixels = NULL;
+        window->fb.width = 0;
+        window->fb.height = 0;
+        window->fb.pitch = 0;
+        window->delegate = [[canopy_delegate alloc] init_canopy_window:window];
+        window->view = [[canopy_view alloc]
                 init_with_frame: NSMakeRect(0, 0, width, height)
-                         window: win];
-
-        win->window = [[NSWindow alloc]
+                         window: window];
+        window->window = [[NSWindow alloc]
              initWithContentRect: NSMakeRect(0, 0, width, height)
                        styleMask: (NSWindowStyleMask)flags
                          backing: NSBackingStoreBuffered
                            defer: NO];
 
-        create_menubar(win->delegate);
+        create_menubar(window->delegate);
 
-        [(NSWindow*)win->window center];
-        [win->window setTitle: [NSString stringWithUTF8String:title]];
-        [win->window setDelegate: win->delegate];
-        [win->window setContentView: win->view];
-        [win->window makeKeyAndOrderFront:nil];
-        [win->window setAcceptsMouseMovedEvents: YES];
+        [(NSWindow*)window->window center];
+        [window->window setTitle: [NSString stringWithUTF8String:title]];
+        [window->window setDelegate: window->delegate];
+        [window->window setContentView: window->view];
+        [window->window makeKeyAndOrderFront:nil];
+        [window->window setAcceptsMouseMovedEvents: YES];
 
 
-        [win->view setWantsLayer: YES];
+        [window->view setWantsLayer: YES];
         // default opaque, can be set manually
-        //[win->view setOpaque: YES];
-        win->is_opaque = true;
-        //[[win->view layer] setOpaque:YES]; // ensures the layer also is opaque - not needed
+        //[window->view setOpaque: YES];
+        window->is_opaque = true;
+        // ensures the layer also is opaque - not needed
+        //[[window->view layer] setOpaque:YES];
 
-        // Properly handle content scaling for fidelity display (i.e. retina display)
-        // INFO: Not supported yet, need to port this to every graphical section
-        NSView *view = (NSView *)win->view;
-        [[view layer] setContentsScale: view.window.backingScaleFactor];
-        win->pixel_ratio = view.window.backingScaleFactor;
-        INFO("Content Scale is : %i, not supported yet", win->pixel_ratio);
+        if (!init_framebuffer(window)) {
+            free_window(window);
+            return NULL;
+        }
 
-        init_framebuffer(win);
-
-        [win->window makeFirstResponder: win->view];
-        win->should_close = false;
+        [window->window makeFirstResponder: window->view];
+        window->should_close = false;
 
         INFO("Created window: \"%s\" (%dx%d)", title, width, height);
 
         post_empty_event();
 
-        return win;
+        return window;
     }
 }
 
@@ -481,63 +500,54 @@ void set_icon(const char* filepath)
     }
 }
 
-bool is_window_opaque(Window *win)
+bool is_window_opaque(Window *window)
 {
-    return [win->view is_opaque];
+    return [window->view isOpaque];
 }
-void set_window_transparent(Window *win, bool enable)
+void set_window_transparent(Window *window, bool enable)
 {
     if( enable ) {
-        win->is_opaque = false;
-        [win->window setOpaque:NO];
-        [win->window setHasShadow:NO];
-        [win->window setBackgroundColor:[NSColor clearColor]];
+        window->is_opaque = false;
+        [window->window setOpaque:NO];
+        [window->window setHasShadow:NO];
+        [window->window setBackgroundColor:[NSColor clearColor]];
         TRACE("Window transparent");
     } else {
-        win->is_opaque = true;
-        [win->window setOpaque:YES];
-        [win->window setHasShadow:YES];
+        window->is_opaque = true;
+        [window->window setOpaque:YES];
+        [window->window setHasShadow:YES];
         TRACE("Window opaque");
     }
 }
-void free_window(Window* win)
+void free_window(Window* window)
 {
-    if( !win ) {
+    if( !window ) {
         WARN("Tried to free a NULL window");
         return;
     }
 
     @autoreleasepool {
         TRACE("Freeing canopy window");
-        // Hide the window
-        [win->window orderOut:nil];
+        [window->window orderOut:nil];
+        [window->window setDelegate:nil];
 
-        // Disconnect delegate and release
-        [win->window setDelegate:nil];
-        [win->delegate release];
-        win->delegate = nil;
+        [window->delegate release];
+        window->delegate = nil;
+        [window->view release];
+        window->view = nil;
 
-        // Release the view
-        [win->view release];
-        win->view = nil;
+        [window->window close];
+        window->window = nil;
 
-        // Close and clear the window object
-        [win->window close];
-        win->window = nil;
-
-        // Free framebuffer
-        if (win->fb.pixels) {
-            canopy_free(win->fb.pixels);
-            win->fb.pixels= NULL;
+        if (window->fb.pixels) {
+            canopy_free(window->fb.pixels);
+            window->fb.pixels= NULL;
         }
-
         // (Optional) Let Cocoa flush pending events
         pump_events();
-
         DEBUG("Window closed and resources cleaned up");
     }
-
-    canopy_free(win);
+    canopy_free(window);
 }
 
 void set_window_should_close(Window *window)
@@ -551,32 +561,55 @@ bool window_should_close(Window *window)
     return window->should_close;
 }
 
-bool init_framebuffer(Window *win)
+/*   <https://www.glfw.org/docs/3.3/group__window.html>
+ * GLFW call it setWindowUserPointer, and it is a nice trick to funnel data
+ * through to callbacks, without bloating the main window object.
+ * The value you set is retained until its either overwritten, or the window
+ * is destroyed. I call it data, as pointer is self evident, but its used for
+ * data, through the window by the user
+ * */
+void set_window_user_data(Window *window, void *user_data)
 {
-    if( win->fb.pixels == NULL )
-    {
-        NSView* view = (NSView*)win->view;
-        NSRect bounds = [view bounds];
+    window->user_data = user_data;
+}
 
-        win->fb.width = (int)bounds.size.width;
-        win->fb.height = (int)bounds.size.height;
-        win->fb.pitch = win->fb.width * CANOPY_BYTES_PER_PIXEL;
+void *get_window_user_data(Window *window)
+{
+    return window->user_data;
+}
 
-        if( win->fb.width <= 0 || win->fb.height <= 0 )
-        {
-            ERROR("Invalid framebuffer size: %dx%d\n",
-                        win->fb.width, win->fb.height);
+/* Properly handle content scaling for fidelity display (i.e. retina display)
+ *  <https://developer.apple.com/library/archive/documentation/GraphicsAnimation/
+ *   Conceptual/HighResolutionOSX/Explained/Explained.html>
+ *
+ * We need to store and convert the difference in points and pixels, and alloc
+ * the correct size */
+static bool init_framebuffer(Window *window)
+{
+    if (!window)
+        return false;
+
+    if (window->fb.pixels == NULL) {
+        update_backing_metrics(window);
+        INFO("Content scale is: %.2f", window->pixel_ratio);
+
+        window->fb.pitch = window->fb.width * CANOPY_BYTES_PER_PIXEL;
+
+        if (window->fb.width == 0 || window->fb.height == 0) {
+            ERROR("Invalid framebuffer size: %ux%u",
+                  window->fb.width, window->fb.height);
             return false;
         }
-        // Allocate buffer to match window size
-        win->fb.pixels = canopy_malloc(win->fb.pitch * win->fb.height);
-        if( !win->fb.pixels ) {
+
+        window->fb.pixels = canopy_malloc(window->fb.pitch * window->fb.height);
+        if (!window->fb.pixels) {
             FATAL("Failed to allocate framebuffer");
             return false;
         }
-        TRACE("Initialized framebuffer: %dx%d (pitch %d)",
-              win->fb.width, win->fb.height, win->fb.pitch);
 
+        TRACE("Initialized framebuffer: %ux%u (pitch %u, scale %.2f)",
+              window->fb.width, window->fb.height,
+              window->fb.pitch, window->pixel_ratio);
     }
 
     return true;
@@ -604,30 +637,43 @@ void present_buffer(Window *window)
                             autorelease];
 
         NSImage *image = [[[NSImage alloc]
-                            initWithSize: NSMakeSize(window->fb.width,
-                                                    window->fb.height)]
+                            initWithSize:NSMakeSize(window->width_points,
+                                                    window->height_points)]
                             autorelease];
 
         [image addRepresentation: rep];
         [(NSView*)window->view layer].contents = image;
-        //TRACE("Framebuffer presented to screen");
     }
 }
 
-
+double get_window_scale(Window *window)                     // 1.0, 2.0, etc
+{
+    return window->pixel_ratio;
+}
+void get_window_size(Window *window, int *w, int *h)       // points
+{
+    if (!window) return;
+    *w = window->width_points;
+    *h = window->height_points;
+}
+void get_framebuffer_size(Window *window, int *width, int *height) // pixels
+{
+    if (!window) return;
+    *width = window->fb.width;
+    *height = window->fb.height;
+}
 framebuffer *get_framebuffer(Window *window)
 {
     return &window->fb;
 }
-
-void swap_backbuffer(Window *w, framebuffer *backbuffer)
+void swap_backbuffer(Window *window, framebuffer *backbuffer)
 {
     if( !backbuffer || !backbuffer->pixels ) {
         ERROR("Backbuffer is NULL");
         return;
     }
 
-    if( !w->fb.pixels ) {
+    if( !window->fb.pixels ) {
         ERROR("Framebuffer in window is NULL");
         return;
     }
@@ -636,8 +682,8 @@ void swap_backbuffer(Window *w, framebuffer *backbuffer)
     // It is much more effecient to just swap pointers since the buffers
     // are equal
     //memcpy(w->fb.pixels, backbuffer->pixels, w->fb.height*w->fb.pitch);
-    uint32_t *temp = w->fb.pixels;
-    w->fb.pixels = backbuffer->pixels;
+    uint32_t *temp = window->fb.pixels;
+    window->fb.pixels = backbuffer->pixels;
     backbuffer->pixels = temp;
 }
 

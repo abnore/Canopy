@@ -150,6 +150,10 @@ typedef enum {
     CANOPY_KEY_SUBTRACT = 0x4E,
 } canopy_key;
 
+/* Converts a keyboard key to a human readable string for printing. Useful for
+ * debugging and logging. */
+const char* key_to_string(canopy_key key);
+
 typedef enum {
     CANOPY_MOUSE_BUTTON_LEFT,
     CANOPY_MOUSE_BUTTON_MIDDLE,
@@ -176,10 +180,8 @@ typedef enum {
                                   CANOPY_WINDOW_STYLE_CLOSABLE |
                                   CANOPY_WINDOW_STYLE_MINIATURIZABLE |
                                   CANOPY_WINDOW_STYLE_RESIZABLE
-} canopy_window_style;
+} window_style;
 
-/* Convert a keyboard key to a human-readable string. */
-const char* canopy_key_to_string(canopy_key key);
 
 //------------------------------------------------------------------------------
 // Memory Allocation
@@ -194,13 +196,16 @@ void *canopy_realloc(void *ptr, size_t size);
 // Main Library
 //------------------------------------------------------------------------------
 /*
-    The canopy_window, named Window, is the main actor in this library,
-    acting as the bridge between C and Objective-C.
+    The canopy_window, named Window, is the main actor in this library, acting
+    as the bridge between C and Objective-C. In order to not expose the Obj-C
+    pointers, as they should not be accessed from user C-code, we will either
+    need to have nested structs (like GLFW which uses an opaque type to a
+    struct inside the higher level object), or just have the opaque type here.
 
     This is a forward declaration — effectively saying:
 
         “Hey compiler, Window is a struct that exists somewhere.
-        I don’t need to know what it looks like yet — just that it exists.”
+        I don’t need to know what it looks like yet, just that it exists.”
 
     This allows:
         - Declaring pointers to it (Window*)
@@ -208,11 +213,10 @@ void *canopy_realloc(void *ptr, size_t size);
 
     But you cannot:
         - Dereference it
-        - Access its members
+        - Access its members directly
         - Allocate it directly (its size is unknown)
 
-    In other words: it's opaque on purpose. Treat it with respect.
-    Don't access directly.
+    In other words: it's opaque on purpose.
 */
 //==============================================================================
 typedef struct canopy_window Window;
@@ -224,38 +228,43 @@ typedef struct {
     uint32_t    *pixels;      // Pixel buffer (RGBA).
     int         width;        // Width in pixels.
     int         height;       // Height in pixels.
-    int         pitch;        // Number of bytes per row.
+    int         pitch;        // Number of bytes per row (row stride)
 } framebuffer;
 
-/* Creates and shows a new window with the given size and title. Width and
- * height of the window in screen pixels. Returns a pointer to the newly
- * created window, or NULL on failure. */
-Window* create_window(const char* title,
-                      int width,
-                      int height,
-                      canopy_window_style flags);
-
-void free_window(Window* w);
-
-/* Set dock icon, give path to an image file to use as the application icon. */
+/* Creates and shows a new window with the given title. Width and height are in
+ * points (logical size). The backing framebuffer is created in pixels, scaled
+ * to match the window’s content scale. Returns a pointer to the newly created
+ * window, or NULL on failure. */
+Window* create_window(char* title, int width, int height, window_style flags);
 void set_icon(const char* filepath);
-bool is_window_opaque(Window *win);
-void set_window_transparent(Window *w, bool enable);
+void free_window(Window* window);
 
-/* Send a request to close the window */
-void set_window_should_close(Window *w);
+/* Gets the window scale (1.0, 2.0 etc) and size in points */
+double get_window_scale(Window *window);
+void get_window_size(Window *window, int *w, int *h);
 
-/* Check if the window should close (user clocked the close button)
- * True if it is set to close, false otherwise */
-bool window_should_close(Window* w);
+/* Attaches user data to the window object, allowing for callbacks to interact
+ * with outside data, such as audio */
+void set_window_user_data(Window *window, void *user_data);
+void *get_window_user_data(Window *window);
 
-/* Attaches a framebuffer to a window w */
-bool init_framebuffer(Window* w);
-framebuffer* get_framebuffer(Window* w);
+/* Check if the window should close (e.g. user clicked the close button)
+ * Set sends a request to close the window */
+bool window_should_close(Window* window);
+void set_window_should_close(Window *window);
 
-/* Presents the contents of the framebuffer to the window */
-void present_buffer(Window* w);
-void swap_backbuffer(Window* w, framebuffer* bf);
+bool is_window_opaque(Window *window);
+void set_window_transparent(Window *window, bool enable);
+
+/* Gets the framebuffer for the window, and its size in pixels */
+framebuffer* get_framebuffer(Window* window);
+void get_framebuffer_size(Window *window, int *width, int *height);
+
+/* Presents the contents of the framebuffer to the window
+ * Optionally you can swap the backbuffer with the framebuffer, allowing better
+ * renders */
+void present_buffer(Window* window);
+void swap_backbuffer(Window* window, framebuffer* bf);
 
 /*==============================================================================
  * The event system for Canopy.
@@ -263,7 +272,7 @@ void swap_backbuffer(Window* w, framebuffer* bf);
  */
 #define CANOPY_MAX_EVENTS 64
 
-// Type of high-level events.
+/* Type of high-level events. */
 typedef enum {
     CANOPY_EVENT_NONE,
     CANOPY_EVENT_MOUSE,
@@ -271,7 +280,7 @@ typedef enum {
     CANOPY_EVENT_TEXT,
 } canopy_event_type;
 
-// Mouse-specific event actions.
+/* Mouse-specific event actions. */
 typedef enum {
     CANOPY_MOUSE_NONE,
     CANOPY_MOUSE_PRESS,
@@ -283,7 +292,7 @@ typedef enum {
     CANOPY_MOUSE_EXIT
 } canopy_action_mouse;
 
-// Key-specific event actions.
+/* Key-specific event actions. */
 typedef enum {
     CANOPY_KEY_NONE,
     CANOPY_KEY_PRESS,
@@ -294,7 +303,7 @@ typedef struct {
     char utf8[5]; // Enough for any UTF-8 encoded codepoint
 } canopy_event_text;
 
-// Mouse event structure.
+/* Mouse event structure. */
 typedef struct {
     canopy_action_mouse action;
     int x, y;
@@ -305,7 +314,7 @@ typedef struct {
     float scroll_y;
 } canopy_event_mouse;
 
-// Keyboard event structure.
+/* Keyboard event structure. */
 typedef struct {
     canopy_action_key action;
     canopy_key keycode;
@@ -313,7 +322,8 @@ typedef struct {
     int is_repeat;
 } canopy_event_key;
 
-// Generic event union.
+/* Generic event union. Based on the type, one of these will contain the correct
+ * information, and will be available as an event */
 typedef struct {
     canopy_event_type type;
     union {
@@ -323,9 +333,8 @@ typedef struct {
     };
 } canopy_event;
 
-void get_mouse_pos(Window *window, double *x, double *y);
 
-// Callback functions to handle events
+/* Callback functions to handle events. These must be user-defined, and set */
 typedef void (*callback_key)(Window*, canopy_event_key*);
 typedef void (*callback_mouse)(Window*, canopy_event_mouse*);
 typedef void (*callback_text)(Window*, canopy_event_text*);
@@ -334,49 +343,60 @@ void set_callback_key(callback_key cb);
 void set_callback_mouse(callback_mouse cb);
 void set_callback_text(callback_text cb);
 
+/* Fills in the mouse pos in the given x and y */
+void get_mouse_pos(Window *window, double *x, double *y);
+
+/* Allows callbacks to be setup, and when called handles events through the
+ * user-defined callback. If callback are not set up, the alternative is to do
+ * it manually with pump_events and then poll_event, acting on the data. */
+void dispatch_events(Window *window);
+
 /* Poll the next event, if available. out_event is a struct to fill,
- * Returns true with strut filled if available, false otherwise */
+ * Returns true with struct filled if available, false otherwise */
 bool poll_event(canopy_event* out_event);
-void dispatch_events(Window *w);
+/* Process all pending events, and dispatch them to the internal event system.
+ * This should be called regularly if using a manual event loop. */
+void pump_events(void);
 
 /* Posting a fake event to the queue to wake up wait-based event loops. This
  * can be useful to break out of wait_events() from another thread */
 void post_empty_event(void);
 
-/* Process all pending events, and dispatch them to the internal event system.
- * This should be called regularly if using a manual event loop. */
-void pump_events(void);
-
 /* Block until an event occurs and dispath it. Uses [NSDate distandFuture] to
  * sleep until the next input event. */
 void wait_events(void);
-
 /* Block until an event occurs or the timeout is reached. */
 void wait_events_timeout(double timeout_seconds);
+
+/* Pushed an event on the event-queue. Should not be touched directly, but
+ * allows for "fake" events to be queued for the user */
 void push_event(canopy_event event);
 
 //------------------------------------------------------------------------------
 // Timer Section
 //------------------------------------------------------------------------------
-/* Initializes the timer system.
- * Must be called before any other time-related functions. */
+/* Initializes the internal timer state
+ * Must be called before any other timer-related functions */
 void init_timer(void);
 
-/* Returns current time in seconds, as a double,
- * and get time in nanoseconds */
+/* Returns the current monotonic time get_time() returns seconds as a double
+ * get_time_ns() returns nanoseconds as an unsigned 64-bit integer */
 double get_time(void);
 uint64_t get_time_ns(void);
 
-/* Gets delta time between last rendered frame and the current one.
- * Used for smooth animations and motion consistency */
+/* Returns the raw elapsed time, in seconds, between the last two accepted
+ * frames. This can be used directly for time-based animation, or normalized;
+ * usually by multiplying by FPS. */
 double get_delta_time(void);
 
-/* Set/get the target FPS for rendereing. Defaults to 60 fps, and clamped at 1 */
+/* Sets or gets the target frames per second used by should_render_frame()
+ * Defaults to 60 FPS, and values below 1 are clamped to 1 */
 void set_fps(int fps);
 int get_fps(void);
 
-/* Asks if rendereing should occur, checks if enough time has passed to render
- * next frame. 1 if true, 0 is false */
+/* Checks whether enough time has passed to render the next frame
+ * Returns 1 if a frame should be rendered, 0 otherwise. When it returns 1,
+ * internal frame timing and delta time are updated */
 int should_render_frame(void);
 
 #ifdef __cplusplus

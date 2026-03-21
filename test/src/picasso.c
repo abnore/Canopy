@@ -5,6 +5,8 @@
 #include <math.h>
 #include <blackbox.h>
 
+#include <canopy.h>
+
 #include "picasso.h"
 
 
@@ -370,7 +372,9 @@ static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
     color blended = { r, g, b, a };
     return color_to_u32(blended);
 }
-void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w, int h, int xoff, int yoff, color c) {
+void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w,
+                                int h, int xoff, int yoff, color c)
+{
     for (int j = 0; j < h; ++j) {
         for (int i = 0; i < w; ++i) {
             int x = xoff + i;
@@ -382,30 +386,81 @@ void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w, i
             if (value == 0) continue;  // Optional: skip fully transparent pixels
 
             uint32_t dst = *picasso__get_pixel_u32(bf, x, y);
-            *picasso__get_pixel_u32(bf, x, y) = picasso__blend_pixel(dst, color_to_u32(c));
+            *picasso__get_pixel_u32(bf, x, y) =
+                                picasso__blend_pixel(dst, color_to_u32(c));
         }
     }
 }
 
 // --------------------------------------------------------
+// Scaling helpers for support of high dpi and points
+// --------------------------------------------------------
+static inline int picasso__to_px_x(const picasso_backbuffer *bf, int x)
+{
+    return (int)lroundf((float)x * bf->scale_x);
+}
+
+static inline int picasso__to_px_y(const picasso_backbuffer *bf, int y)
+{
+    return (int)lroundf((float)y * bf->scale_y);
+}
+
+static inline int picasso__to_px_w(const picasso_backbuffer *bf, int w)
+{
+    return (int)lroundf((float)w * bf->scale_x);
+}
+
+static inline int picasso__to_px_h(const picasso_backbuffer *bf, int h)
+{
+    return (int)lroundf((float)h * bf->scale_y);
+}
+
+static inline int picasso__to_px_uniform(const picasso_backbuffer *bf, int v)
+{
+    float s = (bf->scale_x + bf->scale_y) * 0.5f;
+    return (int)lroundf((float)v * s);
+}
+
+static inline float picasso__to_px_xf(const picasso_backbuffer *bf, float x)
+{
+    return x * bf->scale_x;
+}
+
+static inline float picasso__to_px_yf(const picasso_backbuffer *bf, float y)
+{
+    return y * bf->scale_y;
+}
+// --------------------------------------------------------
 // Backbuffer operations
 // --------------------------------------------------------
 
-
-picasso_backbuffer* picasso_create_backbuffer(int width, int height)
+picasso_backbuffer *picasso_create_backbuffer(Window *window)
 {
-    if (width <= 0 || height <= 0) {
-        return NULL;
-    }
+    if (!window) return NULL;
 
-    picasso_backbuffer* bf = picasso_malloc(sizeof(picasso_backbuffer));
+    int logical_w, logical_h;
+    int fb_w, fb_h;
+
+    get_window_size(window, &logical_w, &logical_h);
+    get_framebuffer_size(window, &fb_w, &fb_h);
+
+    if (logical_w <= 0 || logical_h <= 0 || fb_w <= 0 || fb_h <= 0)
+        return NULL;
+
+    picasso_backbuffer *bf = picasso_malloc(sizeof(*bf));
     if (!bf) return NULL;
 
-    bf->width = width;
-    bf->height = height;
-    bf->pitch = width; // pixels are 32bit - pitch = amount of pixels wide
-    bf->pixels = picasso_calloc(width * height, sizeof(uint32_t));
+    bf->width = fb_w;
+    bf->height = fb_h;
+    bf->pitch = fb_w;
 
+    bf->logical_width = logical_w;
+    bf->logical_height = logical_h;
+
+    bf->scale_x = (float)fb_w / (float)logical_w;
+    bf->scale_y = (float)fb_h / (float)logical_h;
+
+    bf->pixels = picasso_calloc((size_t)fb_w * (size_t)fb_h, sizeof(uint32_t));
     if (!bf->pixels) {
         picasso_free(bf);
         return NULL;
@@ -482,6 +537,18 @@ void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_
     picasso__normalize_rect(&src_r);
     picasso__normalize_rect(&dst_r);
 
+    // Destination rectangle is given in logical coords, so convert it to actual
+    // framebuffer pixels before clipping and rasterizing.
+    picasso_rect dst_px = {
+        .x = picasso__to_px_x(dst, dst_r.x),
+        .y = picasso__to_px_y(dst, dst_r.y),
+        .width = picasso__to_px_w(dst, dst_r.width),
+        .height = picasso__to_px_h(dst, dst_r.height),
+    };
+    picasso__normalize_rect(&dst_px);
+
+    if (dst_px.width <= 0 || dst_px.height <= 0) return;
+
     // Clamp src_r to source image bounds (safe blit)
     if (src_r.x < 0) src_r.x = 0;
     if (src_r.y < 0) src_r.y = 0;
@@ -494,27 +561,29 @@ void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_
         src_r.height = src->height - src_r.y;
     }
 
+    if (src_r.width <= 0 || src_r.height <= 0) return;
+
     // Bounds of the destination
     picasso_draw_bounds bounds;
-    if (!picasso__clip_rect_to_bounds(dst, &dst_r, &bounds)) return;
+    if (!picasso__clip_rect_to_bounds(dst, &dst_px, &bounds)) return;
 
     // Extracting the scaling factor, how fast we sample from the src to the dst.
     // Maybe 2 pixels per pixel
-    float scale_x = (float)src_r.width  / dst_r.width;
-    float scale_y = (float)src_r.height / dst_r.height;
+    float scale_x = (float)src_r.width  / dst_px.width;
+    float scale_y = (float)src_r.height / dst_px.height;
 
 
     // For every row of destination (dy) and dest col (dx)
     for (int dst_y = bounds.y0; dst_y < bounds.y1; ++dst_y)
     {
-        int relative_dst_y = dst_y - dst_r.y;
+        int relative_dst_y = dst_y - dst_px.y;
         int src_y = src_r.y + (int)(relative_dst_y * scale_y);
 
         if( src_y < 0 || src_y >= src->height ) continue;
 
         for (int dst_x = bounds.x0; dst_x < bounds.x1; ++dst_x)
         {
-            int relative_dst_x = dst_x - dst_r.x;
+            int relative_dst_x = dst_x - dst_px.x;
             int src_x = src_r.x + (int)(relative_dst_x * scale_x);
 
             if( src_x < 0 || src_x >= src->width ) continue;
@@ -590,9 +659,15 @@ void picasso_clear_backbuffer(picasso_backbuffer* bf)
 
 void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c)
 {
+    picasso_rect sr = {
+        .x = picasso__to_px_x(bf, r->x),
+        .y = picasso__to_px_y(bf, r->y),
+        .width = picasso__to_px_w(bf, r->width),
+        .height = picasso__to_px_h(bf, r->height),
+    };
     picasso_draw_bounds bounds = {0};
-    picasso__normalize_rect(r);
-    if(!picasso__clip_rect_to_bounds(bf, r, &bounds)) return;
+    picasso__normalize_rect(&sr);
+    if(!picasso__clip_rect_to_bounds(bf, &sr, &bounds)) return;
 
     uint32_t new_pixel = color_to_u32(c);
 
@@ -613,26 +688,37 @@ void picasso_fill_rect(picasso_backbuffer *bf, picasso_rect *r, color c)
  *
  * I might be able to do a 4-slice instead
  * */
+
 void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thickness, color c)
 {
     if (!outer || !bf || thickness <= 0) return;
+
+    picasso_rect outer_px = {
+        .x = picasso__to_px_x(bf, outer->x),
+        .y = picasso__to_px_y(bf, outer->y),
+        .width = picasso__to_px_w(bf, outer->width),
+        .height = picasso__to_px_h(bf, outer->height),
+    };
+
+    thickness = picasso__to_px_uniform(bf, thickness);
+    if (thickness < 1) thickness = 1;
 
     picasso_draw_bounds outer_bounds = {0};
     picasso_draw_bounds inner_bounds = {0};
 
     // Normalize original rectangle (respecting negative width/height)
-    picasso__normalize_rect(outer);
+    picasso__normalize_rect(&outer_px);
 
     // Compute inner rectangle
     picasso_rect inner = {
-        .x = outer->x + thickness,
-        .y = outer->y + thickness,
-        .width = outer->width - 2 * thickness,
-        .height = outer->height - 2 * thickness
+        .x = outer_px.x + thickness,
+        .y = outer_px.y + thickness,
+        .width = outer_px.width - 2 * thickness,
+        .height = outer_px.height - 2 * thickness
     };
 
     // Clip to draw bounds
-    if (!picasso__clip_rect_to_bounds(bf, outer, &outer_bounds)) return;
+    if (!picasso__clip_rect_to_bounds(bf, &outer_px, &outer_bounds)) return;
 
     // if inner bounds doesnt make sense we just null it out making it a full rect
     if (!picasso__clip_rect_to_bounds(bf, &inner, &inner_bounds)) {
@@ -643,15 +729,15 @@ void picasso_draw_rect(picasso_backbuffer *bf, picasso_rect *outer, int thicknes
 
     for (int y = outer_bounds.y0; y < outer_bounds.y1; ++y) {
         for (int x = outer_bounds.x0; x < outer_bounds.x1; ++x) {
-
-            bool inside_inner = ( y >= inner_bounds.y0 && y < inner_bounds.y1 &&
-                                  x >= inner_bounds.x0 && x < inner_bounds.x1 );
+            bool inside_inner = (
+                y >= inner_bounds.y0 && y < inner_bounds.y1 &&
+                x >= inner_bounds.x0 && x < inner_bounds.x1
+            );
 
             if (inside_inner) continue;
-            else {
-                uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
-                *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
-            }
+
+            uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
+            *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
         }
     }
 }
@@ -672,6 +758,11 @@ static inline picasso_rect picasso__make_circle_bounds(int x0, int y0, int radiu
 
 void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, color c)
 {
+    x0 = picasso__to_px_x(bf, x0);
+    y0 = picasso__to_px_y(bf, y0);
+    radius = picasso__to_px_uniform(bf, radius);
+    if (radius < 1) radius = 1;
+
     // create a box around the circle that is slightly larger then the radius
     // that is all we loop over, we clip to bounds
     picasso_draw_bounds bounds = {0};
@@ -685,8 +776,7 @@ void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, col
         for (int x = bounds.x0; x < bounds.x1; ++x) {
             int dx = x - x0;
             int dy = y - y0;
-            if( (dx*dx + dy*dy <= radius*radius + radius) )
-            {
+            if ((dx * dx + dy * dy <= radius * radius + radius)) {
                 uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
                 *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
             }
@@ -694,8 +784,17 @@ void picasso_fill_circle(picasso_backbuffer *bf, int x0, int y0, int radius, col
     }
 }
 
-void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int thickness, color c)
+void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius, int thickness, color c)
 {
+    x0 = picasso__to_px_x(bf, x0);
+    y0 = picasso__to_px_y(bf, y0);
+    radius = picasso__to_px_uniform(bf, radius);
+    thickness = picasso__to_px_uniform(bf, thickness);
+
+    if (radius < 1) radius = 1;
+    if (thickness < 1) thickness = 1;
+    if (thickness > radius) thickness = radius;
+
     picasso_draw_bounds bounds = {0};
     picasso_rect circle_box = picasso__make_circle_bounds(x0, y0, radius);
     if (!picasso__clip_rect_to_bounds(bf, &circle_box, &bounds)) return;
@@ -703,7 +802,8 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int 
     uint32_t new_pixel = color_to_u32(c);
 
     int outer = radius * radius;
-    int inner = (radius - thickness) * (radius - thickness);
+    int inner_r = radius - thickness;
+    int inner = inner_r * inner_r;
 
     for (int y = bounds.y0; y < bounds.y1; ++y) {
         for (int x = bounds.x0; x < bounds.x1; ++x) {
@@ -711,7 +811,7 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius,int 
             int dy = y - y0;
             int dist2 = dx * dx + dy * dy;
 
-            if (dist2 >= inner+radius && dist2 <= outer+radius) {
+            if (dist2 >= inner + radius && dist2 <= outer + radius) {
                 uint32_t *cur_pixel = picasso__get_pixel_u32(bf, x, y);
                 *cur_pixel = picasso__blend_pixel(*cur_pixel, new_pixel);
             }
@@ -767,6 +867,10 @@ void picasso_draw_circle_aa(picasso_backbuffer *bf, int cx, int cy, int r, color
 // resulting path closely follows the desired straight line.
 void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, color c)
 {
+    x0 = picasso__to_px_x(bf, x0);
+    y0 = picasso__to_px_y(bf, y0);
+    x1 = picasso__to_px_x(bf, x1);
+    y1 = picasso__to_px_y(bf, y1);
     // dx and dy are the distances in x and y directions.
     // absolute value to work with positive deltas regardless of direction.
     int dx = PICASSO_ABS(x1 - x0);
@@ -829,6 +933,11 @@ void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, c
 // https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm
 void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, float y1, color c)
 {
+    x0 = picasso__to_px_xf(bf, x0);
+    y0 = picasso__to_px_yf(bf, y0);
+    x1 = picasso__to_px_xf(bf, x1);
+    y1 = picasso__to_px_yf(bf, y1);
+
     // Check if the line is steep
     int steep = fabsf(y1 - y0) > fabsf(x1 - x0);
     // If steep, swap x and y to simplify the loop
@@ -871,9 +980,11 @@ void picasso_draw_line_aa(picasso_backbuffer *bf, float x0, float y0, float x1, 
 }
 void picasso_draw_line_thick(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, int thickness, color c)
 {
-    int steps = sqrtf((x1 - x0)*(x1 - x0) + (y1 - y0)*(y1 - y0));
+    int steps = (int)sqrtf((float)((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)));
+    if (steps < 1) steps = 1;
+
     for (int i = 0; i <= steps; ++i) {
-        float t = (float)i / steps;
+        float t = (float)i / (float)steps;
         int x = (int)(x0 + t * (x1 - x0));
         int y = (int)(y0 + t * (y1 - y0));
         picasso_fill_circle_aa(bf, x, y, thickness / 2, c);
@@ -882,38 +993,37 @@ void picasso_draw_line_thick(picasso_backbuffer *bf, int x0, int y0, int x1, int
 
 void picasso_fill_circle_aa(picasso_backbuffer *bf, int cx, int cy, int radius, color c)
 {
-    for (int y = -radius; y <= radius; ++y)
-    {
-        for (int x = -radius; x <= radius; ++x)
-        {
+    cx = picasso__to_px_x(bf, cx);
+    cy = picasso__to_px_y(bf, cy);
+    radius = picasso__to_px_uniform(bf, radius);
+    if (radius < 1) radius = 1;
+
+    for (int y = -radius; y <= radius; ++y) {
+        for (int x = -radius; x <= radius; ++x) {
             int px = cx + x;
             int py = cy + y;
 
-            // Euclidean distance from center
-            float dist = sqrtf(x * x + y * y);
+            float dist = sqrtf((float)(x * x + y * y));
 
-            if (dist < radius - 1.0f)
-            {
-                // Inside the circle core — fully opaque
+            if (dist < radius - 1.0f) {
                 picasso__plot_aa(bf, px, py, c, 1.0f);
-            }
-            else if (dist <= radius)
-            {
-                // Edge pixels — fade out with distance to smooth edge
+            } else if (dist <= radius) {
                 float alpha = radius - dist;
                 picasso__plot_aa(bf, px, py, c, alpha);
             }
-            // Outside the circle — do nothing
         }
     }
 }
 
 void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 pts, color c)
 {
-    // Unpack input
-    int x0 = pts.x1, y0 = pts.y1;
-    int x1 = pts.x2, y1 = pts.y2;
-    int x2 = pts.x3, y2 = pts.y3;
+    // Unpack input and convert from logical coords to framebuffer pixels
+    int x0 = picasso__to_px_x(bf, pts.x1);
+    int y0 = picasso__to_px_y(bf, pts.y1);
+    int x1 = picasso__to_px_x(bf, pts.x2);
+    int y1 = picasso__to_px_y(bf, pts.y2);
+    int x2 = picasso__to_px_x(bf, pts.x3);
+    int y2 = picasso__to_px_y(bf, pts.y3);
 
     // Clamp with proper types to avoid warnings
     int min_x = PICASSO_CLAMP(PICASSO_MIN3(x0, x1, x2), 0, (int)bf->width - 1);
@@ -922,6 +1032,7 @@ void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 pts, color c)
     int max_y = PICASSO_CLAMP(PICASSO_MAX3(y0, y1, y2), 0, (int)bf->height - 1);
 
     float denom = (float)((y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2));
+    if (denom == 0.0f) return;
 
     for (int y = min_y; y <= max_y; y++) {
         for (int x = min_x; x <= max_x; x++) {

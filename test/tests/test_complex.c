@@ -25,9 +25,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------
-    if (!init_log(false, true, true)) {
-        WARN("Failed to setup logger");
-    }
+    init_log(LOG_DEFAULT);
 
     // Test logging levels
     FATAL("Testing log");
@@ -45,7 +43,7 @@ int main(void)
     picasso_image* bmp_example = picasso_load_bmp("assets/sample.bmp");
     picasso_image* bmp_mine    = picasso_load_bmp("assets/background.bmp");
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer* bf = picasso_create_backbuffer(win);
 
     // Initial animation values
     int xpos = 100;
@@ -96,7 +94,7 @@ int main(void)
             else if (event.type == CANOPY_EVENT_KEY && event.key.action ==
                     CANOPY_KEY_PRESS) {
                 TRACE("Key down %s (code: %d)",
-                        canopy_key_to_string(event.key.keycode),
+                        key_to_string(event.key.keycode),
                         event.key.keycode);
             }
         }

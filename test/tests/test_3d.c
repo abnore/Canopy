@@ -21,7 +21,7 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt);
 
 int main(void)
 {
-    init_log(NO_LOG, LOG_COLORS, STDERR_TO_TERMINAL);
+    init_log(LOG_DEFAULT);
     init_timer();
     set_fps(60);
 
@@ -30,7 +30,7 @@ int main(void)
                         CANOPY_WINDOW_STYLE_TITLED |
                         CANOPY_WINDOW_STYLE_CLOSABLE);
 
-    picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer *bf = picasso_create_backbuffer(win);
 
     float angle = 0;
     while(!window_should_close(win))

@@ -26,10 +26,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------
-    if (!init_log(false, true, true)) {
-        WARN("Failed to initialize logger");
-        return 1;
-    }
+    init_log(LOG_DEFAULT);
 
     Window* win = create_window("Canopy + Picasso - Blitting",
                                                 WIDTH, HEIGHT,
@@ -38,7 +35,7 @@ int main(void)
     set_icon("assets/icon.svg");
     //set_window_transparent(win, true);
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer* bf = picasso_create_backbuffer(win);
     if (!bf) {
         ERROR("Failed to create backbuffer");
         return 1;
@@ -91,7 +88,7 @@ int main(void)
                 case CANOPY_EVENT_KEY:
                     if (event.key.action == CANOPY_KEY_PRESS) {
                         TRACE("Key pressed: %s (code %d)",
-                                canopy_key_to_string(event.key.keycode),
+                                key_to_string(event.key.keycode),
                                                      event.key.keycode);
                     }
                     if (event.key.keycode == CANOPY_KEY_Q)

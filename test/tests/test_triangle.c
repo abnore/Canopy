@@ -86,36 +86,44 @@ static picasso_point3 rotate_triangle(picasso_point3 p, float angle) {
 }
 void draw_perspective_grid(picasso_backbuffer* bf, int spacing, color grid_color)
 {
-    int center_x = bf->width / 2;
-    int horizon_y = bf->height / 3;
-    int bottom_y = bf->height;
+    int w = bf->logical_width;
+    int h = bf->logical_height;
+
+    int center_x  = w / 2;
+    int horizon_y = h / 3;
+    int bottom_y  = h;
+
+    int left_base  = -w;
+    int right_base = 2 * w;
 
     // 1. Draw vertical perspective lines from bottom to vanishing point
-    for (int x = -bf->width; x < (int)bf->width * 2; x += spacing)
+    for (int x = left_base; x < right_base; x += spacing)
     {
         picasso_draw_line(bf, x, bottom_y, center_x, horizon_y, grid_color);
     }
 
-    // 2. Draw horizontal lines spaced in perspective
+    // 2. Draw horizontal lines clipped to the outer perspective bounds
     float z = 1.0f;
     float z_scale = 1.1f;
-    float prev_y = (bottom_y - horizon_y) / z + horizon_y;
 
-    while (prev_y > horizon_y )
+    while (1)
     {
         z *= z_scale;
-        float next_y = (bottom_y - horizon_y) / z + horizon_y;
+        float y = (bottom_y - horizon_y) / z + horizon_y;
+        if (y <= horizon_y)
+            break;
 
-        picasso_draw_line(bf, 0, (int)next_y, bf->width, (int)next_y, grid_color);
-        prev_y = next_y;
+        float t = (y - bottom_y) / (float)(horizon_y - bottom_y);
+
+        int x_left  = (int)(left_base  + t * (center_x - left_base));
+        int x_right = (int)(right_base + t * (center_x - right_base));
+
+        picasso_draw_line(bf, x_left, (int)y, x_right, (int)y, grid_color);
     }
 }
-
 int main(void)
 {
-    if (!init_log(NO_LOG, LOG_COLORS, STDERR_TO_LOG)) {
-        WARN("Failed to setup logger");
-    }
+    init_log(LOG_DEFAULT);
 
     Window* win = create_window("Canopy + Picasso - Rainbow Triangle",
                                               WIDTH, HEIGHT,
@@ -123,7 +131,7 @@ int main(void)
                                               CANOPY_WINDOW_STYLE_CLOSABLE);
     set_icon("assets/picasso.png");
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer* bf = picasso_create_backbuffer(win);
     init_timer();
     set_fps(60);
 

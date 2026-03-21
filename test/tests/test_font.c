@@ -13,7 +13,7 @@ int main(void) {
     init_timer();
     Window *window = create_window("Font Test", WIDTH, HEIGHT,
                                             CANOPY_WINDOW_STYLE_DEFAULT);
-    picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer *bf = picasso_create_backbuffer(window);
 
     // Load font
     const char *font_path = "fonts/LibreBaskerville-Regular.ttf";

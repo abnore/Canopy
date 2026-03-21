@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <canopy.h> // I have decided to make picasso canopy-aware
 
 /* -------------------- Picasso Objects -------------------- */
 typedef struct {
@@ -17,7 +18,14 @@ typedef struct {
 
 typedef struct {
     uint32_t* pixels;
-    uint32_t width, height, pitch;
+    uint32_t width, height, pitch; // actual framebuffer pixels
+
+    // support for retina, high dpi scalingc with canopy
+    uint32_t logical_width;
+    uint32_t logical_height;
+
+    float scale_x;
+    float scale_y;
 } picasso_backbuffer;
 
 typedef struct {
@@ -249,15 +257,17 @@ void picasso_reader_free(picasso_reader *r);
 void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w, int h, int xoff, int yoff, color c);
 
 /* -------------------- Backbuffer Section -------------------- */
-
-picasso_backbuffer* picasso_create_backbuffer(int width, int height);
+// This now will create the backbuffer based on the window, and not on widht and
+// height. Picasso is now canopy aware, since it was designed for it. Making a
+// backbuffer manually is no big deal if you want to anyway.
+picasso_backbuffer* picasso_create_backbuffer(Window *window);
 void picasso_destroy_backbuffer(picasso_backbuffer *bf);
 picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf);
 void picasso_clear_backbuffer(picasso_backbuffer *bf);
 
-/// @brief Draws a region from a source image into a destination backbuffer.
-///        Handles cropping, scaling, and blending.
-///        This is the core pixel blitter in Picasso.
+/* Draws a region from a source image into a destination backbuffer.
+ *        Handles cropping, scaling, and blending.
+ *        This is the core pixel blitter in Picasso. */
 void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_rect, picasso_rect dst_rect);
 void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y);
 void* picasso_backbuffer_pixels(picasso_backbuffer *bf);

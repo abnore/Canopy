@@ -16,7 +16,6 @@
 #include <blackbox.h>
 #define WIDTH   400
 #define HEIGHT  400
-#define PIXELS  WIDTH*HEIGHT
 
 // Phthalo Blue
 // https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
@@ -28,10 +27,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------
-    if (!init_log(false, true, true)) {
-        WARN("Failed to initialize logger\n");
-        return 1;
-    }
+    init_log(LOG_DEFAULT);
 
     Window* win = create_window("Canopy - Custom Framebuffer",
                                                 WIDTH, HEIGHT,
@@ -42,6 +38,7 @@ int main(void)
     set_fps(60); // default is 60
 
     framebuffer *fb = get_framebuffer(win);
+    int pixels = fb->width * fb->height;
     //--------------------------------------------------------------------------
 
     // Main Game Loop
@@ -62,15 +59,15 @@ int main(void)
         if (should_render_frame())
         {
             // Fill the framebuffer with its color
-            for (int i = 0; i < PIXELS; ++i) {
+            for (int i = 0; i < pixels; ++i) {
                 fb->pixels[i] = 0xff2020ff;
             }
 
-            for (int i = 0; i < PIXELS; ++i) {
+            for (int i = 0; i < pixels; ++i) {
 
                 int alpha_inc = 128; //((i/10)%WIDTH);
 
-                if(i >= PIXELS/2){
+                if(i >=pixels/2){
                     uint32_t pixel = CANOPY_BLUE;
                     fb->pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
                 }

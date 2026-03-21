@@ -25,7 +25,7 @@ void handle_key(Window *w, canopy_event_key* e )
 {
     if (e->action == CANOPY_KEY_PRESS) {
         TRACE("Key pressed: %s (code %d) Modifier: %i",
-                canopy_key_to_string(e->keycode),e->keycode, e->modifiers );
+                key_to_string(e->keycode),e->keycode, e->modifiers );
         if (e->keycode == CANOPY_KEY_Q)
         {
             INFO("Closing the window, because you pressed q");
@@ -48,11 +48,7 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------
-    if (!init_log(false, true, false)) {
-        WARN("Failed to initialize logger");
-        return 1;
-    }
-
+    init_log(LOG_DEFAULT);
     init_timer();
     set_fps(24);
 
@@ -66,7 +62,7 @@ int main(void)
     set_callback_mouse( handle_mouse);
     set_callback_text( handle_text);
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer* bf = picasso_create_backbuffer(win);
     if (!bf) {
         ERROR("Failed to create backbuffer");
         return 1;

@@ -20,12 +20,12 @@ void mouse_callback(Window *win, canopy_event_mouse *e) {
 
 int main(void)
 {
-    init_log(NO_LOG, LOG_COLORS, STDERR_TO_LOG);
+    init_log(LOG_DEFAULT);
     init_timer();
     set_fps(24);
     Window *win = create_window("Bezier", WIDTH, HEIGHT, CANOPY_WINDOW_STYLE_DEFAULT);
     set_callback_mouse(mouse_callback);
-    picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer *bf = picasso_create_backbuffer(win);
     while(!window_should_close(win))
     {
         dispatch_events(win);

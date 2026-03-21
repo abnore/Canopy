@@ -19,17 +19,14 @@
 
 int main(void)
 {
-    if (!init_log(false, true, true)) {
-        WARN("Failed to initialize logger");
-        return 1;
-    }
+    init_log(LOG_DEFAULT);
 
     Window* win = create_window("Color conversion",
                                               WIDTH, HEIGHT,
                                               CANOPY_WINDOW_STYLE_TITLED |
                                               CANOPY_WINDOW_STYLE_CLOSABLE);
 
-    picasso_backbuffer *bf = picasso_create_backbuffer(WIDTH, HEIGHT);
+    picasso_backbuffer *bf = picasso_create_backbuffer(win);
 
     picasso_image *bmp = picasso_load_bmp("assets/sample1.bmp");
 
