@@ -19,7 +19,7 @@ static struct {
     int initialized;
 } canopy_timer;
 
-void init_timer(void)
+static void init_timer(void)
 {
     kern_return_t result = mach_timebase_info(&canopy_timer.timebase);
     if (result != KERN_SUCCESS) {
@@ -44,13 +44,21 @@ void init_timer(void)
     INFO("Timer initialized");
 }
 
+static void ensure_timer_initialized(void)
+{
+    if (!canopy_timer.initialized)
+        init_timer();
+}
+
 double get_time(void)
 {
+    ensure_timer_initialized();
     return (double)mach_absolute_time() * canopy_timer.to_seconds;
 }
 
 uint64_t get_time_ns(void)
 {
+    ensure_timer_initialized();
     uint64_t ticks = mach_absolute_time();
     return ticks * canopy_timer.timebase.numer / canopy_timer.timebase.denom;
 }
@@ -60,11 +68,13 @@ uint64_t get_time_ns(void)
  * This is the same as '/ (1/60)' which is normalization */
 double get_delta_time(void)
 {
+    ensure_timer_initialized();
     return canopy_timer.delta_time;
 }
 
 void set_fps(int fps)
 {
+    ensure_timer_initialized();
     if (fps < 1) {
         WARN("FPS below 1 specified, clamping to 1");
         fps = 1;
@@ -76,16 +86,13 @@ void set_fps(int fps)
 
 int get_fps(void)
 {
+    ensure_timer_initialized();
     return (int)(1.0 / canopy_timer.target_frame_time);
 }
 
 int should_render_frame(void)
 {
-    if (!canopy_timer.initialized) {
-        WARN("Timer used before init_timer()");
-        return 0;
-    }
-
+    // get_time calls ensure_timer_initialized
     double now = get_time();
     double elapsed = now - canopy_timer.last_tick_time;
     canopy_timer.last_tick_time = now;

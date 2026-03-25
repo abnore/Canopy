@@ -70,7 +70,7 @@ int main(void)
     int vel_y = 4;
     double mouse_x = 0;
     double mouse_y = 0;
-    init_timer();
+
     set_fps(144);
     //--------------------------------------------------------------------------
     int dir = 4;
@@ -78,6 +78,7 @@ int main(void)
     // Main Game Loop
     while (!window_should_close(win))
     {
+        pump_messages();
         // Input
         //----------------------------------------------------------------------
         canopy_event event;

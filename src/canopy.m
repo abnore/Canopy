@@ -9,13 +9,18 @@ struct canopy_window {
     id window;
     id view;
     id delegate;
+
     framebuffer fb;
     double pixel_ratio; // support of high spi/retina screen
     uint32_t width_points, height_points; // Docs say points not pixels
+    double mouse_x, mouse_y;
     bool should_close;
     bool is_opaque;
-    double mouse_x, mouse_y;
     void *user_data; // support for passing data for callbacks
+
+    void (*callback_key)(Window *, canopy_event_key*);
+    void (*callback_text)(Window *, canopy_event_text*);
+    void (*callback_mouse)(Window *, canopy_event_mouse*);
 };
 
 //------------------------------------------------------------------------------
@@ -548,10 +553,25 @@ void free_window(Window* window)
             window->fb.pixels= NULL;
         }
         // (Optional) Let Cocoa flush pending events
-        pump_events();
+        pump_messages();
         DEBUG("Window closed and resources cleaned up");
     }
     canopy_free(window);
+}
+
+void pump_messages(void)
+{
+    @autoreleasepool {
+        NSEvent* event;
+
+        while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                           untilDate:[NSDate distantPast]
+                                              inMode:NSDefaultRunLoopMode
+                                             dequeue:YES]))
+        {
+            [NSApp sendEvent:event];
+        }
+    } // autoreleasepool
 }
 
 double get_window_scale(Window *window)                     // 1.0, 2.0, etc
@@ -582,7 +602,8 @@ void *get_window_user_data(Window *window)
 }
 bool window_should_close(Window *window)
 {
-    pump_events();  // Keep the UI alive
+    // This is being done in poll_events now
+//    pump_events();  // Keep the UI alive
     return window->should_close;
 }
 void set_window_should_close(Window *window)
@@ -640,8 +661,8 @@ void present_buffer(Window *window)
                         autorelease];
 
         NSImage *image = [[[NSImage alloc]
-            initWithSize:NSMakeSize(window->width_points, window->height_points)]
-            autorelease];
+           initWithSize:NSMakeSize(window->width_points, window->height_points)]
+           autorelease];
 
         [image addRepresentation: rep];
         [(NSView*)window->view layer].contents = image;
@@ -670,6 +691,33 @@ void swap_backbuffer(Window *window, framebuffer *backbuffer)
 
 /* Event system */
 
+void dispatch_events(Window *w)
+{
+    canopy_event e;
+
+    while (poll_event(&e))
+    {
+        switch (e.type) {
+        case CANOPY_EVENT_NONE: break;
+
+        case CANOPY_EVENT_KEY:
+            if (w->callback_key) w->callback_key(w, &e.key);
+            break;
+
+        case CANOPY_EVENT_TEXT:
+            if (w->callback_text) w->callback_text(w, &e.text);
+            break;
+
+        case CANOPY_EVENT_MOUSE:
+            if (w->callback_mouse) w->callback_mouse(w, &e.mouse);
+            break;
+        }
+    }
+}
+
+void set_callback_key(Window *w, callback_key cb) { w->callback_key = cb; }
+void set_callback_text(Window *w, callback_text cb) { w->callback_text = cb; }
+void set_callback_mouse(Window *w, callback_mouse cb) { w->callback_mouse = cb; }
 
 void get_mouse_pos(Window *window, double *x, double *y)
 {
@@ -678,24 +726,6 @@ void get_mouse_pos(Window *window, double *x, double *y)
     *y = window->mouse_y;
 }
 
-/* Pump messages so that the window is shown to be responsive
- * Also needed for event handling
- * */
-void pump_events(void)
-{
-    @autoreleasepool {
-        NSEvent* event;
-
-        while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                           untilDate:nil
-                                              inMode:NSDefaultRunLoopMode
-                                             dequeue:YES]))
-        {
-            [NSApp sendEvent:event];
-            [NSApp updateWindows];
-        }
-    } // autoreleasepool
-}
 void post_empty_event(void)
 {
     @autoreleasepool {

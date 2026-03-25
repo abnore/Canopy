@@ -49,7 +49,7 @@ int main(void)
     // Initialization
     //--------------------------------------------------------------------------
     init_log(LOG_DEFAULT);
-    init_timer();
+
     set_fps(24);
 
     Window* win = create_window("Canopy + Picasso - Blitting",
@@ -58,9 +58,9 @@ int main(void)
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
     set_icon("assets/icon.svg");
 
-    set_callback_key( handle_key);
-    set_callback_mouse( handle_mouse);
-    set_callback_text( handle_text);
+    set_callback_key(win, handle_key);
+    set_callback_mouse(win, handle_mouse);
+    set_callback_text(win, handle_text);
 
     picasso_backbuffer* bf = picasso_create_backbuffer(win);
     if (!bf) {
@@ -74,6 +74,7 @@ int main(void)
     // Main Game Loop
     while (!window_should_close(win))
     {
+        pump_messages();
         // Input
         //----------------------------------------------------------------------
         dispatch_events(win);

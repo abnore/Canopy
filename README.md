@@ -31,7 +31,7 @@ internals and build something from scratch.
 - [x] Handle mouse, keyboard, and scroll input
 - [x] Provide a backbuffer and rendering pipeline
 - [x] Add a logging system (broke this out as BlackBox)
-- [ ] Enable hardware acceleration (future)
+- [ ] Enable hardware acceleration
 - [ ] Add sprite support and simple 2D rendering helpers
 
 
@@ -72,7 +72,8 @@ And it will be installed on your system.
 *   Description:
 *       Renders a solid-colored rectangle using a manually created framebuffer.
 *       Demonstrates how to allocate, fill, and display a custom framebuffer.
-*       Assumes installation of Canopy and BlackBox
+*       Assumes installation of Canopy and BlackBox.
+*       Error checking is kept to a minimum for brevity.
 *
 *   Controls:
 *       [Close Window] - Exit application
@@ -84,7 +85,6 @@ And it will be installed on your system.
 
 #define WIDTH   400
 #define HEIGHT  400
-#define PIXELS  WIDTH*HEIGHT
 
 // Phthalo Blue
 // https://colors.artyclick.com/color-names-dictionary/color-names/phthalo-blue-color
@@ -98,36 +98,32 @@ int main(void)
     //--------------------------------------------------------------------------
     init_log(LOG_DEFAULT);
 
-    Window* win = create_window("Canopy - Custom Framebuffer", WIDTH, HEIGHT,
+    Window* win = create_window("Canopy - Custom Framebuffer",
+                                WIDTH, HEIGHT,
                                 CANOPY_WINDOW_STYLE_DEFAULT);
-    init_timer();
-    //canopy_set_fps(60); // default is 60
 
+    /* get_framebuffer(win) would return the framebuffer to the window, allowing
+     * direct manipulation. This is the other way, for situations where it is
+     * best to finish creating the buffer, and swap.
+     * [!NOTE] you can not use WIDTH, HEIGHT because of content scaling */
     framebuffer fb;
-    fb.width = 400;
-    fb.height = 400;
+    get_framebuffer_size(win, &fb.width, &fb.height);
+    int pixels_arr = fb.width * fb.height;
     fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
 
     size_t buffer_size = fb.pitch * fb.height;
     fb.pixels = canopy_malloc(buffer_size);
 
-    if (!fb.pixels) {
-        FATAL("Failed to allocate framebuffer");
-        return 1;
-    }
-
     //--------------------------------------------------------------------------
-
     // Main Game Loop
     while (!window_should_close(win))
     {
         // Update
+        pump_messages();
         //----------------------------------------------------------------------
         /* `dispatch_events(win)` allows you to create custom callbacks for both
-         * key, mouse and text events that handles everything. If not doing it
-         * manually like this also works
-         */
-        pump_events();
+         * key, mouse and text events that handles everything. If not, doing it
+         * manually like this also works */
         canopy_event event;
         while (poll_event(&event))
         {
@@ -140,8 +136,8 @@ int main(void)
         if (should_render_frame())
         {
             // Fill the framebuffer with its clear color
-            for (int i = 0; i < PIXELS; ++i) {
-                if(i >= PIXELS/2){
+            for (int i = 0; i < pixels_arr; ++i) {
+                if(i >= pixels_arr/2){
                     fb.pixels[i] = CANOPY_BLUE;
                 }
                 else{
@@ -184,8 +180,7 @@ Or integrate it into your own CMake or Makefile setup.
 
 This is a side project, built for fun and learning.
 
-If you’re interested in how to work directly with Cocoa and C,
-Canopy might be a good reference.
+If you’re interested in how to work directly with Cocoa and C, Canopy might be
+a good reference.
 
-Use it, break it, learn from it.
-Feel free to fork and experiment, just don’t expect it to replace SDL, Raylib or GLFW (yet)!
+Feel free to use, just don’t expect it to replace SDL, Raylib or GLFW (yet)!

@@ -110,7 +110,7 @@ int main(void)
 //    float sin_y = 1, cos_x = 0;
 //    float count=500;
 //    float rate = 0.1f;
-    init_timer();
+
     picasso_fill_rect(bf, &(picasso_rect){0,0,bf->width, bf->height},WHITE);
     picasso_draw_line_aa(bf, WIDTH/2, HEIGHT/2, 0,0, WHITE);
     picasso_draw_line_aa(bf, WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, PINK);
@@ -128,6 +128,7 @@ int main(void)
     // Main Game Loop
     while (!window_should_close(win))
     {
+        pump_messages();
         // Input
         //----------------------------------------------------------------------
         get_mouse_pos(win, &mouse_x, &mouse_y);

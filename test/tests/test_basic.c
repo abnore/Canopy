@@ -4,16 +4,17 @@
 *
 *   Description:
 *       Renders a solid-colored rectangle using a manually created framebuffer.
-*       Demonstrates how to allocate, fill, and display a custom framebuffer
-*       using Canopy.
+*       Demonstrates how to allocate, fill, and display a custom framebuffer.
+*       Assumes installation of Canopy and BlackBox
 *
 *   Controls:
 *       [Close Window] - Exit application
 *
 *******************************************************************************/
 
-#include "canopy.h"
+#include <canopy.h>
 #include <blackbox.h>
+
 #define WIDTH   400
 #define HEIGHT  400
 
@@ -29,64 +30,77 @@ int main(void)
     //--------------------------------------------------------------------------
     init_log(LOG_DEFAULT);
 
-    Window* win = create_window("Canopy - Custom Framebuffer",
-                                                WIDTH, HEIGHT,
-                                                CANOPY_WINDOW_STYLE_TITLED |
-                                                CANOPY_WINDOW_STYLE_CLOSABLE);
-    //set_window_transparent(win, true);
-    init_timer();
-    set_fps(60); // default is 60
+    Window* win = create_window("Canopy - Custom Framebuffer", WIDTH, HEIGHT,
+                                CANOPY_WINDOW_STYLE_DEFAULT);
 
-    framebuffer *fb = get_framebuffer(win);
-    int pixels = fb->width * fb->height;
+    /* get_framebuffer(win) would return the framebuffer to the window, allowing
+     * direct manipulation. This is the other way, for situations where it is
+     * best to finish creating the buffer, and swap.*/
+    framebuffer fb;
+    get_framebuffer_size(win, &fb.width, &fb.height);
+    fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
+
+    size_t buffer_size = fb.pitch * fb.height;
+    fb.pixels = canopy_malloc(buffer_size);
+
+    if (!fb.pixels) {
+        FATAL("Failed to allocate framebuffer");
+        return 1;
+    }
+
+    int pixels = fb.width * fb.height;
+    double current_time, prev_time = get_time();
+
+    // set_fps(60);
     //--------------------------------------------------------------------------
-
     // Main Game Loop
     while (!window_should_close(win))
     {
         // Update
+        pump_messages();
         //----------------------------------------------------------------------
+        /* `dispatch_events(win)` allows you to create custom callbacks for both
+         * key, mouse and text events that handles everything. If not, doing it
+         * manually also works */
         canopy_event event;
         while (poll_event(&event))
         {
             // Handle events (mouse, keyboard, etc.)
-            //INFO("An event was triggered!");
         }
         //----------------------------------------------------------------------
 
         // Draw
         //----------------------------------------------------------------------
+
+
         if (should_render_frame())
         {
-            // Fill the framebuffer with its color
+            current_time = get_time();
+            double frames_per_sec = 1 / (current_time - prev_time);
+            prev_time = current_time;
+            // Fill the framebuffer with its clear color
             for (int i = 0; i < pixels; ++i) {
-                fb->pixels[i] = 0xff2020ff;
-            }
-
-            for (int i = 0; i < pixels; ++i) {
-
-                int alpha_inc = 128; //((i/10)%WIDTH);
-
-                if(i >=pixels/2){
-                    uint32_t pixel = CANOPY_BLUE;
-                    fb->pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
+                if(i >= pixels/2){
+                    fb.pixels[i] = CANOPY_BLUE;
                 }
-//                else{
-//                    uint32_t pixel = PHTALO_BLUE;
-//                    fb.pixels[i] = (pixel & 0x00ffffff) | ((alpha_inc) << 24);
-//                }
+                else{
+                    fb.pixels[i] = PHTALO_BLUE;
+                }
             }
 
             // Do other stuff graphicly here
 
-            //swap_backbuffer(win,fb);    // Switch pointers of custom framebuffer
-            present_buffer(win);         // Present on screen
+
+            printf("\rFPS: %.4f", frames_per_sec);
+            swap_backbuffer(win,&fb);   // Switch pointers of custom framebuffer
+            present_buffer(win);        // Present on screen
         }
         //----------------------------------------------------------------------
     }
 
     // De-Initialization
     //--------------------------------------------------------------------------
+    free(fb.pixels);
     free_window(win);
     shutdown_log();
     //--------------------------------------------------------------------------

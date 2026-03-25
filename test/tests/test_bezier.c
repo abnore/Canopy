@@ -21,13 +21,14 @@ void mouse_callback(Window *win, canopy_event_mouse *e) {
 int main(void)
 {
     init_log(LOG_DEFAULT);
-    init_timer();
+
     set_fps(24);
     Window *win = create_window("Bezier", WIDTH, HEIGHT, CANOPY_WINDOW_STYLE_DEFAULT);
-    set_callback_mouse(mouse_callback);
+    set_callback_mouse(win, mouse_callback);
     picasso_backbuffer *bf = picasso_create_backbuffer(win);
     while(!window_should_close(win))
     {
+        pump_messages();
         dispatch_events(win);
         picasso_vec2 p0 = {100, 400};
         picasso_vec2 p1 = control_point;

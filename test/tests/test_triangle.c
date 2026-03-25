@@ -9,6 +9,12 @@
 #define CENTER_Y (HEIGHT / 2)
 
 static float angle = 0.0f;
+static float _to_px_xf(const picasso_backbuffer *bf, float x) {
+    return x * bf->scale_x;
+}
+static float _to_px_yf(const picasso_backbuffer *bf, float y) {
+    return y * bf->scale_y;
+}
 
 // Basic HSV to RGB conversion
 static color hsv_to_rgb(float h, float s, float v) {
@@ -27,44 +33,84 @@ static color hsv_to_rgb(float h, float s, float v) {
         case 4: r = t; g = p; b = v; break;
         case 5: r = v; g = p; b = q; break;
     }
-
-    return (color){ (uint8_t)(r * 255), (uint8_t)(g * 255), (uint8_t)(b * 255), 255 };
+    return (color){(uint8_t)(r * 255),
+                   (uint8_t)(g * 255),
+                   (uint8_t)(b * 255),
+                          /* a */255};
 }
-void picasso_fill_triangle_rainbow(picasso_backbuffer* bf, picasso_point3 t)
+// Drop in version from openAI - GPT 5.4. Checking out capabilities. Still crap
+// rotates differently then what i want. I will try something else later.
+// Leaving this here.
+void picasso_fill_triangle_rainbow(picasso_backbuffer* bf,
+                                   picasso_point3 t,
+                                   float rotation)
 {
-    // Compute triangle bounding box
-    int min_x = PICASSO_CLAMP(PICASSO_MIN3(t.x1, t.x2, t.x3), 0, (int)bf->width - 1);
-    int max_x = PICASSO_CLAMP(PICASSO_MAX3(t.x1, t.x2, t.x3), 0, (int)bf->width - 1);
-    int min_y = PICASSO_CLAMP(PICASSO_MIN3(t.y1, t.y2, t.y3), 0, (int)bf->height - 1);
-    int max_y = PICASSO_CLAMP(PICASSO_MAX3(t.y1, t.y2, t.y3), 0, (int)bf->height - 1);
+    // Convert to float + scale
+    float x1 = _to_px_xf(bf, t.x1);
+    float y1 = _to_px_yf(bf, t.y1);
+    float x2 = _to_px_xf(bf, t.x2);
+    float y2 = _to_px_yf(bf, t.y2);
+    float x3 = _to_px_xf(bf, t.x3);
+    float y3 = _to_px_yf(bf, t.y3);
 
-    // Compute triangle center
-    float cx = (t.x1 + t.x2 + t.x3) / 3.0f;
-    float cy = (t.y1 + t.y2 + t.y3) / 3.0f;
+    // Bounding box (correct for floats)
+    int min_x = (int)fmaxf(floorf(fminf(fminf(x1, x2), x3)), 0.0f);
+    int max_x = (int)fminf(ceilf (fmaxf(fmaxf(x1, x2), x3)), bf->width  - 1);
+    int min_y = (int)fmaxf(floorf(fminf(fminf(y1, y2), y3)), 0.0f);
+    int max_y = (int)fminf(ceilf (fmaxf(fmaxf(y1, y2), y3)), bf->height - 1);
+
+    // Triangle center (for your rainbow)
+    float cx = (x1 + x2 + x3) / 3.0f;
+    float cy = (y1 + y2 + y3) / 3.0f;
+
+    // Edge function
+    #define EDGE(ax, ay, bx, by, px, py) \
+        ((px - ax)*(by - ay) - (py - ay)*(bx - ax))
+
+    // Precompute area (for winding)
+    float area = EDGE(x1, y1, x2, y2, x3, y3);
 
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
 
-            // Barycentric coordinates
-            int w0 = (t.x2 - t.x1)*(y - t.y1) - (t.y2 - t.y1)*(x - t.x1);
-            int w1 = (t.x3 - t.x2)*(y - t.y2) - (t.y3 - t.y2)*(x - t.x2);
-            int w2 = (t.x1 - t.x3)*(y - t.y3) - (t.y1 - t.y3)*(x - t.x3);
+            // Sample at pixel center (important!)
+            float px = x + 0.5f;
+            float py = y + 0.5f;
 
-            bool has_neg = (w0 < 0) || (w1 < 0) || (w2 < 0);
-            bool has_pos = (w0 > 0) || (w1 > 0) || (w2 > 0);
-            if (has_neg && has_pos) continue;
+            float w0 = EDGE(x2, y2, x3, y3, px, py);
+            float w1 = EDGE(x3, y3, x1, y1, px, py);
+            float w2 = EDGE(x1, y1, x2, y2, px, py);
 
-            // Compute angle from center to pixel
-            float dx = x - cx;
-            float dy = y - cy;
-            float angle = atan2f(dy, dx);   // [-π, π]
-            float hue = (angle + M_PI) / (2 * M_PI);  // Normalize to [0, 1]
+            // Inside test (same sign as area)
+            if ((w0 >= 0 && w1 >= 0 && w2 >= 0 && area > 0) ||
+                (w0 <= 0 && w1 <= 0 && w2 <= 0 && area < 0))
+            {
+                float dx = px - cx;
+                float dy = py - cy;
 
-            color rainbow = hsv_to_rgb(hue, 1.0f, 1.0f);
-            bf->pixels[y * bf->width + x] = color_to_u32(rainbow);
+                // rotate pixel BACK into triangle's local space
+                float s = sinf(-rotation);
+                float c = cosf(-rotation);
+
+                float lx = dx * c - dy * s;
+                float ly = dx * s + dy * c;
+
+                float angle_local = atan2f(ly, lx);
+                float hue = (angle_local + M_PI) / (2 * M_PI);
+
+                // FIX: wrap properly
+                hue = fmodf(hue, 1.0f);
+                if (hue < 0.0f) hue += 1.0f;
+
+                color rainbow = hsv_to_rgb(hue, 1.0f, 1.0f);
+                bf->pixels[y * bf->width + x] = color_to_u32(rainbow);
+            }
         }
     }
+
+    #undef EDGE
 }
+
 // Rotate triangle around its center
 static picasso_point3 rotate_triangle(picasso_point3 p, float angle) {
     float cx = (p.x1 + p.x2 + p.x3) / 3.0f;
@@ -130,16 +176,17 @@ int main(void)
                                               CANOPY_WINDOW_STYLE_TITLED |
                                               CANOPY_WINDOW_STYLE_CLOSABLE);
     set_icon("assets/picasso.png");
+    set_fps(60);
 
     picasso_backbuffer* bf = picasso_create_backbuffer(win);
-    init_timer();
-    set_fps(60);
 
     // Base triangle to rotate
     picasso_point3 p = {220, 190, 600, 370, 260, 410};
 
     while (!window_should_close(win))
     {
+        pump_messages();
+
         if (should_render_frame())
         {
             picasso_clear_backbuffer(bf);
@@ -147,23 +194,21 @@ int main(void)
 
 
             angle += 0.01f;
-            picasso_point3 rotated = rotate_triangle(p, angle);
+            picasso_point3 rot = rotate_triangle(p, angle);
             // Rainbow edge colors
             color red   = hsv_to_rgb(0.0f,       1.0f, 1.0f);  // Red
             color green = hsv_to_rgb(1.0f / 3.0f, 1.0f, 1.0f);  // Green
             color blue  = hsv_to_rgb(2.0f / 3.0f, 1.0f, 1.0f);  // Blue
 
             // Fill triangle with dark color
-             picasso_fill_triangle(bf, rotated, (color){20, 20, 20, 255});
-            //picasso_fill_triangle(bf, rotated, RED);
-
-            //picasso_fill_triangle(bf, rotated, RED);
-            // picasso_fill_triangle_rainbow(bf, rotated);
+            //picasso_fill_triangle(bf, rot, (color){20, 20, 20, 255});
+            //picasso_fill_triangle(bf, rot, RED);
+            picasso_fill_triangle_rainbow(bf, rot, angle);
 
             // Draw anti-aliased rainbow edges
-            picasso_draw_line_aa(bf, rotated.x1, rotated.y1, rotated.x2, rotated.y2, red);
-            picasso_draw_line_aa(bf, rotated.x2, rotated.y2, rotated.x3, rotated.y3, green);
-            picasso_draw_line_aa(bf, rotated.x3, rotated.y3, rotated.x1, rotated.y1, blue);
+            picasso_draw_line_aa(bf, rot.x1, rot.y1, rot.x2, rot.y2, red);
+            picasso_draw_line_aa(bf, rot.x2, rot.y2, rot.x3, rot.y3, green);
+            picasso_draw_line_aa(bf, rot.x3, rot.y3, rot.x1, rot.y1, blue);
 
             swap_backbuffer(win, (framebuffer*)bf);
             present_buffer(win);

@@ -76,12 +76,13 @@ void draw_rotated_grid(picasso_backbuffer *bf) {
 
 int main(void) {
     init_log(LOG_DEFAULT);
-    init_timer();
+
     Window *win = create_window("Rotated Grid", WIDTH, HEIGHT,
             CANOPY_WINDOW_STYLE_DEFAULT);
     picasso_backbuffer *bf = picasso_create_backbuffer(win);
 
     while (!window_should_close(win)) {
+        pump_messages();
         if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
             draw_rotated_grid(bf);

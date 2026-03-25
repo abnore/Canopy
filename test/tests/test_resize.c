@@ -55,12 +55,13 @@ int main(void)
             file_from_bf->width, file_from_bf->height, 4);
     picasso_save_to_bmp(file, "resize_new.bmp", 0);
 
-    init_timer();
+
     set_fps(24);
     //--------------------------------------------------------------------------
     // Main Game Loop
     while (!window_should_close(win))
     {
+        pump_messages();
         // Input
         //----------------------------------------------------------------------
         picasso_rect tile_src = { 0, 0, 17, 17 };// get tile at (32,0) size 32x32

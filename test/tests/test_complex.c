@@ -54,13 +54,14 @@ int main(void)
     int sprite_width  = bmp_mine->width;
     int sprite_height = bmp_mine->height;
 
-    init_timer();
+
     set_fps(60);
     //--------------------------------------------------------------------------
 
     // Main Game Loop
     while (!window_should_close(win))
     {
+        pump_messages();
         // Input
         //----------------------------------------------------------------------
         canopy_event event;

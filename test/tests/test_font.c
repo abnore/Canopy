@@ -10,7 +10,7 @@
 int main(void) {
     init_log(LOG_DEFAULT);
 
-    init_timer();
+
     Window *window = create_window("Font Test", WIDTH, HEIGHT,
                                             CANOPY_WINDOW_STYLE_DEFAULT);
     picasso_backbuffer *bf = picasso_create_backbuffer(window);
@@ -45,6 +45,7 @@ int main(void) {
     int x = 10;  // starting x pos
 
     while (!window_should_close(window)) {
+        pump_messages();
         if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
 

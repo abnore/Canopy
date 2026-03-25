@@ -3,9 +3,6 @@
 #include "canopy.h"
 #include "picasso.h"
 #include <blackbox.h>
-//#define FACTOR 100
-//#define WIDTH (16*FACTOR)
-//#define HEIGHT (9*FACTOR)
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -22,7 +19,6 @@ void render3d(picasso_backbuffer *bf, float *angle, double dt);
 int main(void)
 {
     init_log(LOG_DEFAULT);
-    init_timer();
     set_fps(60);
 
     Window *win = create_window("3D test",
@@ -35,6 +31,7 @@ int main(void)
     float angle = 0;
     while(!window_should_close(win))
     {
+        pump_messages();
         // Set up and input
         // ----------------
         if(should_render_frame())
@@ -53,8 +50,9 @@ int main(void)
     return 0;
 }
 
-// In order to work conceptually with a 3d grid it makes sense to normalize the coords
-// Therefore we can say that z = 0 is the screen, and screen positive (or negative) is visable
+// In order to work conceptually with a 3d grid it makes sense to normalize the
+// coords Therefore we can say that z = 0 is the screen, and screen positive
+// (or negative) is visable
 void render3d(picasso_backbuffer *bf, float *angle, double dt)
 {
     *angle += 0.25*M_PI*dt;

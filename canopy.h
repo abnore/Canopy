@@ -186,7 +186,7 @@ typedef enum {
 //------------------------------------------------------------------------------
 // Memory Allocation
 //------------------------------------------------------------------------------
-/* Custom allocators or wrappers if not defined */
+/* Custom allocators; or wrappers if not defined */
 void *canopy_calloc(size_t count, size_t size);
 void canopy_free(void *ptr);
 void *canopy_malloc(size_t size);
@@ -239,6 +239,11 @@ Window* create_window(char* title, int width, int height, window_style flags);
 void set_icon(const char* filepath);
 void free_window(Window* window);
 
+/* Processes all pending AppKit events and dispatches them to the internal
+ * event system. This includes window events, and must be called regularly to
+ * keep the UI alive and responsive. */
+void pump_messages();
+
 /* Gets the window scale (1.0, 2.0 etc) and size in points */
 double get_window_scale(Window *window);
 void get_window_size(Window *window, int *w, int *h);
@@ -253,6 +258,7 @@ void *get_window_user_data(Window *window);
 bool window_should_close(Window* window);
 void set_window_should_close(Window *window);
 
+/* Checks is the window opaque, and also you can set it transparent */
 bool is_window_opaque(Window *window);
 void set_window_transparent(Window *window, bool enable);
 
@@ -306,8 +312,8 @@ typedef struct {
 /* Mouse event structure. */
 typedef struct {
     canopy_action_mouse action;
-    int x, y;
     canopy_mouse_button button;
+    int x, y;
     int modifiers;
     int click_count;
     float scroll_x;
@@ -333,39 +339,37 @@ typedef struct {
     };
 } canopy_event;
 
-
-/* Callback functions to handle events. These must be user-defined, and set */
-typedef void (*callback_key)(Window*, canopy_event_key*);
-typedef void (*callback_mouse)(Window*, canopy_event_mouse*);
-typedef void (*callback_text)(Window*, canopy_event_text*);
-
-void set_callback_key(callback_key cb);
-void set_callback_mouse(callback_mouse cb);
-void set_callback_text(callback_text cb);
-
-/* Fills in the mouse pos in the given x and y */
-void get_mouse_pos(Window *window, double *x, double *y);
-
-/* Allows callbacks to be setup, and when called handles events through the
+/* Allows callbacks to be set up, and when called, handles events through the
  * user-defined callback. If callback are not set up, the alternative is to do
  * it manually with pump_events and then poll_event, acting on the data. */
 void dispatch_events(Window *window);
 
+/* Callback functions to handle events. These must be user-defined, and set.
+ * They belong to the window per now, even though the events are global.
+ * TODO: look into event queue per window */
+typedef void (*callback_key)(Window*, canopy_event_key*);
+typedef void (*callback_mouse)(Window*, canopy_event_mouse*);
+typedef void (*callback_text)(Window*, canopy_event_text*);
+
+void set_callback_key(Window* w, callback_key cb);
+void set_callback_mouse(Window* w, callback_mouse cb);
+void set_callback_text(Window* w, callback_text cb);
+
+/* Fills in the mouse pos in the given x and y */
+void get_mouse_pos(Window *window, double *x, double *y);
+
 /* Poll the next event, if available. out_event is a struct to fill,
  * Returns true with struct filled if available, false otherwise */
 bool poll_event(canopy_event* out_event);
-/* Process all pending events, and dispatch them to the internal event system.
- * This should be called regularly if using a manual event loop. */
-void pump_events(void);
 
 /* Posting a fake event to the queue to wake up wait-based event loops. This
  * can be useful to break out of wait_events() from another thread */
 void post_empty_event(void);
 
 /* Block until an event occurs and dispath it. Uses [NSDate distandFuture] to
- * sleep until the next input event. */
+ * sleep until the next input event.
+ * Block until an event occurs or the timeout is reached. */
 void wait_events(void);
-/* Block until an event occurs or the timeout is reached. */
 void wait_events_timeout(double timeout_seconds);
 
 /* Pushed an event on the event-queue. Should not be touched directly, but
@@ -375,10 +379,6 @@ void push_event(canopy_event event);
 //------------------------------------------------------------------------------
 // Timer Section
 //------------------------------------------------------------------------------
-/* Initializes the internal timer state
- * Must be called before any other timer-related functions */
-void init_timer(void);
-
 /* Returns the current monotonic time get_time() returns seconds as a double
  * get_time_ns() returns nanoseconds as an unsigned 64-bit integer */
 double get_time(void);
