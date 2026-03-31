@@ -10,15 +10,10 @@ inc_dir     = ../lib
 
 cc          = clang
 cc_flags    = -framework Cocoa -I. -I.. -I$(lib_dir) -I$(src_dir) -I$(inc_dir) -Wall -Wextra
-ld_flags    = -lblackbox
+ld_flags    = -lblackbox -lcanopy
 
 # Common sources used by ALL tests
-src_common  = ../$(src_dir)/canopy.m \
-              ../$(src_dir)/canopy_event.c \
-              ../$(src_dir)/canopy_time.c \
-              ../$(src_dir)/canopy_memory.c \
-              ../$(src_dir)/canopy_input.c \
-              $(src_dir)/bmp.c \
+src_common  = $(src_dir)/bmp.c \
               $(src_dir)/picasso.c \
               $(src_dir)/picasso_icc_profiles.c
 

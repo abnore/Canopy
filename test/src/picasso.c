@@ -26,7 +26,7 @@ void * picasso_realloc(void *ptr, size_t size){
     return realloc(ptr, size);
 }
 
-/*-------------------- Little and Big Endian Byte Readers Utility -------------------- */
+/* --------------- Little and Big Endian Byte Readers Utility --------------- */
 uint8_t picasso_read_u8(picasso_reader *r) {
     return *r->ptr++;
 }
@@ -53,7 +53,8 @@ uint32_t picasso_read_u32_be(picasso_reader *r) {
     return (uint32_t)hi | ((uint32_t)lo << 16);
 }
 int32_t picasso_read_s32_le(picasso_reader *r) {
-    return (int32_t)picasso_read_u32_le(r);// safe because casting unsigned to signed preserves bit pattern
+    // safe because casting unsigned to signed preserves bit pattern
+    return (int32_t)picasso_read_u32_le(r);
 }
 /* -------------------- File Support -------------------- */
 
@@ -335,9 +336,10 @@ static void picasso__normalize_rect(picasso_rect *r)
         r->height = -r->height;
     }
 }
-/* Creating the bounds for looping over, removing the logic from the draw functions */
-static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_rect *r,
-                                 picasso_draw_bounds *db)
+/* Creating the bounds for looping over, removing the logic from the draw
+ * functions */
+static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf,
+        const picasso_rect *r, picasso_draw_bounds *db)
 {
     if (!r || r->width == 0 || r->height == 0)
         return false;
@@ -349,8 +351,10 @@ static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf, const picasso_r
     // Simple logic to force the rect inside the backbuffer
     db->x0 = (r->x > 0) ? r->x : 0;
     db->y0 = (r->y > 0) ? r->y : 0;
-    db->x1 = (r->x + r->width < (int)bf->width) ? r->x + r->width : (int)bf->width;
-    db->y1 = (r->y + r->height < (int)bf->height) ? r->y + r->height : (int)bf->height;
+    db->x1 = (r->x + r->width  < (int)bf->width)  ?
+        r->x + r->width  : (int)bf->width;
+    db->y1 = (r->y + r->height < (int)bf->height) ?
+        r->y + r->height : (int)bf->height;
 
     return true;
 }
@@ -383,7 +387,7 @@ void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w,
                 continue;
 
             uint8_t value = bitmap[j * w + i];
-            if (value == 0) continue;  // Optional: skip fully transparent pixels
+            if (value == 0) continue;  //Optional: skip fully transparent pixels
 
             uint32_t dst = *picasso__get_pixel_u32(bf, x, y);
             *picasso__get_pixel_u32(bf, x, y) =
@@ -484,7 +488,7 @@ picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf)
 {
     if (!bf || !bf->pixels) return NULL;
 
-    picasso_image *img = picasso_alloc_image(bf->width, bf->height, 4); // 4 channels
+    picasso_image *img = picasso_alloc_image(bf->width, bf->height, 4);
     if (!img) return NULL;
 
     for (int y = 0; y < (int)bf->height; ++y) {
@@ -520,7 +524,11 @@ picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf)
 //}
 
 // “Wait, I can just do this in one clean line now?” ..... Just wrap blit_rect and rename it blit..
-void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset_x, int offset_y)
+void picasso_blit_bitmap(
+        picasso_backbuffer *dst,
+        picasso_image *src,
+        int offset_x,
+        int offset_y)
 {
     picasso_rect full = { 0, 0, src->width, src->height };
     picasso_rect at   = { offset_x, offset_y, src->width, src->height };
@@ -528,7 +536,11 @@ void picasso_blit_bitmap(picasso_backbuffer *dst, picasso_image *src, int offset
 }
 
 // This became a powerhouse function, handles all blit actions now to the backbuffer
-void picasso_blit(picasso_backbuffer *dst, picasso_image *src, picasso_rect src_r, picasso_rect dst_r)
+void picasso_blit(
+        picasso_backbuffer *dst,
+        picasso_image *src,
+        picasso_rect src_r,
+        picasso_rect dst_r)
 {
     // Early sanity checks to bail out early if anything is invalid
     if (!dst || !src || !dst->pixels || !src->pixels) return;

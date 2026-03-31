@@ -32,6 +32,7 @@ int main(void)
                                                 WIDTH, HEIGHT,
                                                 CANOPY_WINDOW_STYLE_TITLED |
                                                 CANOPY_WINDOW_STYLE_CLOSABLE);
+    set_fps(120);
     set_icon("assets/icon.svg");
     //set_window_transparent(win, true);
 

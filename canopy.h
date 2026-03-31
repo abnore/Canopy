@@ -225,7 +225,7 @@ typedef struct canopy_window Window;
 #define CANOPY_BYTES_PER_PIXEL 4
 
 typedef struct {
-    uint32_t    *pixels;      // Pixel buffer (RGBA).
+    uint32_t   *pixels;       // Pixel buffer (RGBA).
     int         width;        // Width in pixels.
     int         height;       // Height in pixels.
     int         pitch;        // Number of bytes per row (row stride)
@@ -243,6 +243,11 @@ void free_window(Window* window);
  * event system. This includes window events, and must be called regularly to
  * keep the UI alive and responsive. */
 void pump_messages();
+
+/* Blocks events from being registered. Regions where events are to be ignored,
+ * and have no back log build up */
+void block_events();
+void unblock_events();
 
 /* Gets the window scale (1.0, 2.0 etc) and size in points */
 double get_window_scale(Window *window);

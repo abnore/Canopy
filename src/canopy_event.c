@@ -6,9 +6,17 @@
 static canopy_event event_queue[CANOPY_MAX_EVENTS];
 static int event_head = 0;
 static int event_tail = 0;
+static int block = 0;
 
+void block_events(){
+    block = 1;
+}
+void unblock_events(){
+    block = 0;
+}
 void push_event(canopy_event ev)
 {
+    if (block) return;
     int next = (event_tail + 1) % CANOPY_MAX_EVENTS;
 
     if (next != event_head) { // only add if queue not full
