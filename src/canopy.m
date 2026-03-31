@@ -468,6 +468,8 @@ Window* create_window(char* title, int width, int height, window_style flags)
         window->fb.width = 0;
         window->fb.height = 0;
         window->fb.pitch = 0;
+        window->fb.num_pixels = 0;
+        window->fb.buffer_size = 0;
         window->delegate = [[canopy_delegate alloc] init_canopy_window:window];
 
         window->view = [[canopy_view alloc]
@@ -635,11 +637,18 @@ framebuffer *get_framebuffer(Window *window)
 {
     return &window->fb;
 }
-void get_framebuffer_size(Window *window, int *width, int *height) // pixels
+framebuffer get_framebuffer_size(Window *window)
 {
-    if (!window) return;
-    *width = window->fb.width;
-    *height = window->fb.height;
+    if (!window) return (framebuffer){0};
+
+    return (framebuffer){
+        .width = window->fb.width,
+        .height = window->fb.height, // pixels
+        .pixels = NULL,
+        .num_pixels = window->fb.num_pixels,
+        .buffer_size = window->fb.buffer_size,
+        .pitch = window->fb.pitch
+    };
 }
 void present_buffer(Window *window)
 {
@@ -804,14 +813,17 @@ static bool init_framebuffer(Window *window)
         INFO("Content scale is: %.2f", window->pixel_ratio);
 
         window->fb.pitch = window->fb.width * CANOPY_BYTES_PER_PIXEL;
+        window->fb.num_pixels = window->fb.width * window->fb.height;
+        window->fb.buffer_size = window->fb.pitch * window->fb.height;
 
-        if (window->fb.width == 0 || window->fb.height == 0) {
+        if ( window->fb.num_pixels == 0 ) {
             ERROR("Invalid framebuffer size: %ux%u",
                   window->fb.width, window->fb.height);
             return false;
         }
 
-        window->fb.pixels = canopy_malloc(window->fb.pitch * window->fb.height);
+        window->fb.pixels = canopy_malloc(window->fb.buffer_size);
+
         if (!window->fb.pixels) {
             FATAL("Failed to allocate framebuffer");
             return false;

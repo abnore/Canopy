@@ -225,10 +225,12 @@ typedef struct canopy_window Window;
 #define CANOPY_BYTES_PER_PIXEL 4
 
 typedef struct {
-    uint32_t   *pixels;       // Pixel buffer (RGBA).
-    int         width;        // Width in pixels.
-    int         height;       // Height in pixels.
-    int         pitch;        // Number of bytes per row (row stride)
+    uint32_t   *pixels;       // pixel buffer (RGBA)
+    uint16_t    width;        // width in pixels
+    uint16_t    height;       // height in pixels
+    uint32_t    pitch;        // number of bytes per row (row stride)
+    uint32_t    num_pixels;   // width * height
+    uint32_t    buffer_size;  // pitch * height
 } framebuffer;
 
 /* Creates and shows a new window with the given title. Width and height are in
@@ -267,9 +269,10 @@ void set_window_should_close(Window *window);
 bool is_window_opaque(Window *window);
 void set_window_transparent(Window *window, bool enable);
 
-/* Gets the framebuffer for the window, and its size in pixels */
+/* Gets the framebuffer for the window, or a copy of all the fields, for local
+ * stack based manipulation. */
 framebuffer* get_framebuffer(Window* window);
-void get_framebuffer_size(Window *window, int *width, int *height);
+framebuffer get_framebuffer_size(Window *window);
 
 /* Presents the contents of the framebuffer to the window
  * Optionally you can swap the backbuffer with the framebuffer, allowing better

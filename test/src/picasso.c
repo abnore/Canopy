@@ -443,10 +443,12 @@ picasso_backbuffer *picasso_create_backbuffer(Window *window)
     if (!window) return NULL;
 
     int logical_w, logical_h;
-    int fb_w, fb_h;
+    uint16_t fb_w, fb_h;
 
     get_window_size(window, &logical_w, &logical_h);
-    get_framebuffer_size(window, &fb_w, &fb_h);
+    framebuffer fb = get_framebuffer_size(window);
+    fb_w = fb.width;
+    fb_h = fb.height;
 
     if (logical_w <= 0 || logical_h <= 0 || fb_w <= 0 || fb_h <= 0)
         return NULL;

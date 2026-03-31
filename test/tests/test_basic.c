@@ -36,19 +36,14 @@ int main(void)
     /* get_framebuffer(win) would return the framebuffer to the window, allowing
      * direct manipulation. This is the other way, for situations where it is
      * best to finish creating the buffer, and swap.*/
-    framebuffer fb;
-    get_framebuffer_size(win, &fb.width, &fb.height);
-    fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
-
-    size_t buffer_size = fb.pitch * fb.height;
-    fb.pixels = canopy_malloc(buffer_size);
+    framebuffer fb = get_framebuffer_size(win);
+    fb.pixels = canopy_malloc(fb.buffer_size);
 
     if (!fb.pixels) {
         FATAL("Failed to allocate framebuffer");
         return 1;
     }
 
-    int pixels = fb.width * fb.height;
     double current_time, prev_time = get_time();
 
     // set_fps(60);
@@ -79,8 +74,8 @@ int main(void)
             double frames_per_sec = 1 / (current_time - prev_time);
             prev_time = current_time;
             // Fill the framebuffer with its clear color
-            for (int i = 0; i < pixels; ++i) {
-                if(i >= pixels/2){
+            for (uint32_t i = 0; i < fb.num_pixels; ++i) {
+                if(i >= fb.num_pixels/2){
                     fb.pixels[i] = CANOPY_BLUE;
                 }
                 else{

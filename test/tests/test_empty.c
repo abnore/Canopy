@@ -22,7 +22,6 @@ int main(void)
                                  600, 400, // Width and Height
                                  CANOPY_WINDOW_STYLE_TITLED |
                                  CANOPY_WINDOW_STYLE_CLOSABLE);
-
     // Main Loop
     //--------------------------------------------------------------------------
     while (!window_should_close(win))

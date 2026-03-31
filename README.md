@@ -16,7 +16,8 @@ dependencies.
 
 This project is **educational and experimental** in nature. It’s not intended
 for production or anything like that. I just want to better understand macOS
-internals and build something from scratch.
+internals and build something from scratch. I like learning how to build stuff
+from the bottom up.
 
 >[!WARNING]
 >This project is **under active development** and is evolving quickly.
@@ -104,15 +105,12 @@ int main(void)
 
     /* get_framebuffer(win) would return the framebuffer to the window, allowing
      * direct manipulation. This is the other way, for situations where it is
-     * best to finish creating the buffer, and swap.
-     * [!NOTE] you can not use WIDTH, HEIGHT because of content scaling */
-    framebuffer fb;
-    get_framebuffer_size(win, &fb.width, &fb.height);
-    int pixels_arr = fb.width * fb.height;
-    fb.pitch = fb.width * CANOPY_BYTES_PER_PIXEL;
-
-    size_t buffer_size = fb.pitch * fb.height;
-    fb.pixels = canopy_malloc(buffer_size);
+     * best to get a copy, finish creating and drawing the buffer, then swap.
+     *
+     * [!NOTE] you can **not** use WIDTH, HEIGHT because of content scaling
+     */
+    framebuffer fb = get_framebuffer_size(win);
+    fb.pixels = canopy_malloc(fb.buffer_size);
 
     //--------------------------------------------------------------------------
     // Main Game Loop
@@ -136,8 +134,8 @@ int main(void)
         if (should_render_frame())
         {
             // Fill the framebuffer with its clear color
-            for (int i = 0; i < pixels_arr; ++i) {
-                if(i >= pixels_arr/2){
+            for (uint32_t i = 0; i < fb.num_pixels; ++i) {
+                if(i >= fb.num_pixels/2){
                     fb.pixels[i] = CANOPY_BLUE;
                 }
                 else{
