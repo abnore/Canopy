@@ -469,9 +469,11 @@ Window* create_window(char* title, int width, int height, window_style flags)
         window->fb.height = 0;
         window->fb.pitch = 0;
         window->delegate = [[canopy_delegate alloc] init_canopy_window:window];
+
         window->view = [[canopy_view alloc]
             init_with_frame: NSMakeRect(0, 0, width, height)
                      window: window];
+
         window->window = [[NSWindow alloc]
             initWithContentRect: NSMakeRect(0, 0, width, height)
                       styleMask: (NSWindowStyleMask)flags
@@ -679,11 +681,6 @@ void swap_backbuffer(Window *window, framebuffer *backbuffer)
         ERROR("Framebuffer in window is NULL");
         return;
     }
-
-    // Old way of copying byte for byte is too expensive when i scale
-    // It is much more effecient to just swap pointers since the buffers
-    // are equal
-    //memcpy(w->fb.pixels, backbuffer->pixels, w->fb.height*w->fb.pitch);
     uint32_t *temp = window->fb.pixels;
     window->fb.pixels = backbuffer->pixels;
     backbuffer->pixels = temp;
