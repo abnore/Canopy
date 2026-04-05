@@ -40,7 +40,7 @@ int main(void)
 
             render3d(bf, &angle, get_delta_time());
 
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
     }

@@ -135,7 +135,7 @@ int main(void)
             picasso_fill_circle(bf,xpos, ypos, 40, YELLOW);
             picasso_draw_circle(bf, mouse_x, mouse_y, 10,5, SET_ALPHA(PINK,90));
             picasso_fill_rect(bf, &rect_green, SET_ALPHA(GREEN, 40));
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
         //----------------------------------------------------------------------

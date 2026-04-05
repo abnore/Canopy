@@ -32,6 +32,7 @@ from the bottom up.
 - [x] Handle mouse, keyboard, and scroll input
 - [x] Provide a backbuffer and rendering pipeline
 - [x] Add a logging system (broke this out as BlackBox)
+- [x] Added basic font support through Core Text/Graphics
 - [ ] Enable hardware acceleration
 - [ ] Add sprite support and simple 2D rendering helpers
 
@@ -109,7 +110,7 @@ int main(void)
      *
      * [!NOTE] you can **not** use WIDTH, HEIGHT because of content scaling
      */
-    framebuffer fb = get_framebuffer_size(win);
+    Framebuffer fb = get_framebuffer_size(win);
     fb.pixels = canopy_malloc(fb.buffer_size);
 
     //--------------------------------------------------------------------------

@@ -10,16 +10,31 @@
 *
 *******************************************************************************/
 
-#include "canopy.h"
 #include "picasso.h" // for the colors and graphics
+
+#include <canopy.h>
 #include <blackbox.h>
 
 #define WIDTH   800
 #define HEIGHT  600
 
+void swap_renderer(Renderer **a, Renderer **b) {
+    Renderer *tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
 void handle_text(Window *w, canopy_event_text *e) {
-    INFO("Typed: %s", e->utf8);
-    (void)w;
+    char *buffer = get_window_user_data(w);
+    static int string_cursor = 0;
+    int i = 0;
+    printf("\tTEXT:\"%s\"\n", e->utf8);
+    fflush(stdout);
+
+    while (e->utf8[i] != '\0') {
+        buffer[string_cursor++] = e->utf8[i++];
+    }
+
+    buffer[string_cursor] = '\0';
 }
 void handle_key(Window *w, canopy_event_key* e )
 {
@@ -33,7 +48,6 @@ void handle_key(Window *w, canopy_event_key* e )
         }
     }
 }
-
 
 void handle_mouse(Window *w,  canopy_event_mouse* e )
 {
@@ -62,14 +76,26 @@ int main(void)
     set_callback_mouse(win, handle_mouse);
     set_callback_text(win, handle_text);
 
-    picasso_backbuffer* bf = picasso_create_backbuffer(win);
+    picasso_backbuffer *bf = picasso_create_backbuffer(win);
+
     if (!bf) {
         ERROR("Failed to create backbuffer");
         return 1;
     }
 
+    Renderer *back = create_renderer(&bf->base);
+    Renderer *front = create_renderer(get_framebuffer(win));
+
+    Font *f = load_font("../fonts/LibreBaskerville-Regular.ttf");
+
+       //      B      G      R    A
+    Color c = {1.0f, 0.0f, 0.0f, 1.0f};
     double mouse_x, mouse_y;
     picasso_image *image = picasso_load_bmp("assets/sample1.bmp");
+
+    //char string[5] = {0};
+    char string[128] = {0};
+    set_window_user_data(win, &string);
     //--------------------------------------------------------------------------
     // Main Game Loop
     while (!window_should_close(win))
@@ -82,13 +108,19 @@ int main(void)
         //----------------------------------------------------------------------
         // Draw
         //----------------------------------------------------------------------
-        if (should_render_frame()) {
-
+        if (should_render_frame())
+        {
             picasso_clear_backbuffer(bf);
-            picasso_blit_bitmap(bf,image, (WIDTH-image->width)/2,
-                    (HEIGHT-image->height)/2);
+
+            //advance = measure_text_width(f, string, 85.f);
+            picasso_blit_bitmap(bf, image, (WIDTH-image->width)/2,
+                                (HEIGHT-image->height)/2);
+
+            draw_text(back, f, (const char*)&string, 0, 0, 85.f, c);
             picasso_fill_circle(bf, mouse_x, mouse_y, 5, RED);
-            swap_backbuffer(win, (framebuffer*)bf);
+
+            swap_backbuffer(win, &bf->base);
+            swap_renderer(&back, &front);
             present_buffer(win);
         }
         //----------------------------------------------------------------------

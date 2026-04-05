@@ -1,8 +1,8 @@
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
-#include "picasso.h"
 #include "canopy.h"
+
 #include <blackbox.h>
+#include <string.h>
+#include <unistd.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -10,71 +10,73 @@
 int main(void) {
     init_log(LOG_DEFAULT);
 
-
     Window *window = create_window("Font Test", WIDTH, HEIGHT,
-                                            CANOPY_WINDOW_STYLE_DEFAULT);
-    picasso_backbuffer *bf = picasso_create_backbuffer(window);
+                                   CANOPY_WINDOW_STYLE_DEFAULT);
+    Framebuffer *fb = get_framebuffer(window);
+    set_fps(5);
+    const char *font_path = ("./fonts/LibreBaskerville-Bold.ttf");
+    //const char *font_path = ("LibreBaskerville-Bold");
+    //const char *font_path = ("Helvetica");
+    //const char *font_path = (NULL);
 
-    // Load font
-    const char *font_path = "fonts/LibreBaskerville-Regular.ttf";
+    FontBounds b;
+    Font *font = load_font(font_path);
+    Renderer *renderer = create_renderer(fb);
 
-    picasso_reader *reader = picasso_read_entire_file(font_path);
-    if (!reader) {
-        FATAL("Failed to read font file");
-        exit(1);
-    }
+    Color color = {0xdc/255.f, 0xd7/255.f, 0xba/255.f, 1.0f};
 
-    stbtt_fontinfo font;
-    if (!stbtt_InitFont(&font, reader->ptr,
-        stbtt_GetFontOffsetForIndex(reader->ptr, 0)))
+    char counter = '!';
+    char text[2] = {0};
+
+    float size = 84.0f;
+    int count = 0;
+    int max_per_row = 20;
+    float row_height = 100.0f;
+
+    float x_start = 40.0f;
+    float y_start = 20.0f;
+
+    float x_cursor = x_start;
+    float y_cursor = y_start;
+
+    while (!window_should_close(window))
     {
-        FATAL("Failed to init font");
-        exit(1);
-    }
-
-    float size = 64.0f;
-    float scale = stbtt_ScaleForPixelHeight(&font, size);
-
-    // Get vertical baseline
-    int ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
-    int baseline = (int)(ascent * scale);
-
-    const char *text = "Hello M B P X A N a b c";
-    color c = PURPLE;
-    int x = 10;  // starting x pos
-
-    while (!window_should_close(window)) {
         pump_messages();
-        if (should_render_frame()) {
-            picasso_clear_backbuffer(bf);
 
-            x = 10;  // reset per frame
-            for (const char *p = text; *p; ++p) {
-                int w, h, xoff, yoff;
-                uint8_t *bitmap = stbtt_GetCodepointBitmap(
-                        &font, 0, scale, *p, &w, &h, &xoff, &yoff);
+        if (should_render_frame())
+        {
+            text[0] = counter;
+            text[1] = '\0';
 
-                draw_bitmap_to_backbuffer(bf, bitmap, w, h, x + xoff, 300 -
-                        baseline + yoff, c);
-                stbtt_FreeBitmap(bitmap, NULL);
+            b = draw_text(renderer, font, text, x_cursor, y_cursor, size, color);
 
-                // advance x position
-                int ax;
-                stbtt_GetCodepointHMetrics(&font, *p, &ax, 0);
-                x += (int)(ax * scale);
+            x_cursor += (float)b.width;
+            count++;
 
-                // optional kerning
-                if (*(p + 1)) {
-                    x += (int)(stbtt_GetCodepointKernAdvance(&font,
-                            *p, *(p + 1)) * scale);
-                }
+            if (count >= max_per_row) {
+                count = 0;
+                x_cursor = x_start;
+                y_cursor += row_height;
             }
-            swap_backbuffer(window, (framebuffer *)bf);
+
+            if (counter > '~') {
+                sleep(3);
+                count = 0;
+                counter = '0';
+                x_cursor = 40.f;
+                y_cursor = 20.f;
+                memset(fb->pixels, 0, fb->buffer_size);
+            }
+            counter++;
+
             present_buffer(window);
         }
-    }
-    picasso_reader_free(reader);
+}
+
+    destroy_renderer(renderer);
+    destroy_font(font);
+
+    free_window(window);
     shutdown_log();
     return 0;
 }

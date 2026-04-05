@@ -55,9 +55,9 @@ void picasso_fill_triangle_rainbow(picasso_backbuffer* bf,
 
     // Bounding box (correct for floats)
     int min_x = (int)fmaxf(floorf(fminf(fminf(x1, x2), x3)), 0.0f);
-    int max_x = (int)fminf(ceilf (fmaxf(fmaxf(x1, x2), x3)), bf->width  - 1);
+    int max_x = (int)fminf(ceilf (fmaxf(fmaxf(x1, x2), x3)), bf->base.width  - 1);
     int min_y = (int)fmaxf(floorf(fminf(fminf(y1, y2), y3)), 0.0f);
-    int max_y = (int)fminf(ceilf (fmaxf(fmaxf(y1, y2), y3)), bf->height - 1);
+    int max_y = (int)fminf(ceilf (fmaxf(fmaxf(y1, y2), y3)), bf->base.height - 1);
 
     // Triangle center (for your rainbow)
     float cx = (x1 + x2 + x3) / 3.0f;
@@ -103,7 +103,7 @@ void picasso_fill_triangle_rainbow(picasso_backbuffer* bf,
                 if (hue < 0.0f) hue += 1.0f;
 
                 color rainbow = hsv_to_rgb(hue, 1.0f, 1.0f);
-                bf->pixels[y * bf->width + x] = color_to_u32(rainbow);
+                bf->base.pixels[y * bf->base.width + x] = color_to_u32(rainbow);
             }
         }
     }
@@ -210,7 +210,7 @@ int main(void)
             picasso_draw_line_aa(bf, rot.x2, rot.y2, rot.x3, rot.y3, green);
             picasso_draw_line_aa(bf, rot.x3, rot.y3, rot.x1, rot.y1, blue);
 
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
     }

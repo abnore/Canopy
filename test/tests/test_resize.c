@@ -78,7 +78,7 @@ int main(void)
             picasso_blit_bitmap(bf, dst3x,0,99);
             picasso_blit_bitmap(bf, tiles,0,0);
 
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
         //----------------------------------------------------------------------

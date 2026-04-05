@@ -86,7 +86,7 @@ int main(void) {
         if (should_render_frame()) {
             picasso_clear_backbuffer(bf);
             draw_rotated_grid(bf);
-            swap_backbuffer(win, (framebuffer *)bf);
+            swap_backbuffer(win, (Framebuffer *)bf);
             present_buffer(win);
         }
     }

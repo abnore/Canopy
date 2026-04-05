@@ -17,8 +17,7 @@ typedef struct {
 } picasso_image;
 
 typedef struct {
-    uint32_t* pixels;
-    uint32_t width, height, pitch; // actual framebuffer pixels
+    Framebuffer base;
 
     // support for retina, high dpi scalingc with canopy
     uint32_t logical_width;
@@ -67,7 +66,7 @@ typedef struct {
 typedef struct {
     uint8_t *fp;   // Pointer to start of file buffer
     uint8_t *ptr;  // Advancing read pointer
-    size_t size;         // Total size of the file buffer
+    size_t size;   // Total size of the file buffer
 } picasso_reader;
 
 /* -------------------- Utility macros -------------------- */
@@ -131,7 +130,7 @@ static inline void picasso__put_pixel_u8(picasso_image *img, int x, int y, uint3
 }
 static inline uint32_t *picasso__get_pixel_u32(picasso_backbuffer *bf, int x, int y)
 {
-    return &bf->pixels[y * bf->width + x];
+    return &bf->base.pixels[y * bf->base.width + x];
 }
 
 static inline color get_color_u8(const uint8_t* pixel, int channels)

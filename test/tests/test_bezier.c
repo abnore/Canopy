@@ -43,7 +43,7 @@ int main(void)
 
             draw_bezier(bf, p0, p1, p2, 300);
 
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
         //

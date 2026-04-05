@@ -123,7 +123,7 @@ int main(void)
 
 
             // Present the frame
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
     }

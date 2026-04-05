@@ -23,6 +23,8 @@ CFLAGS      = -Wall -Wextra -O2 -fPIC -I.
 LDFLAGS     = -dynamiclib \
               -install_name $(LIBDIR)/$(TARGET) \
               -framework Cocoa \
+              -framework CoreGraphics \
+			  -framework CoreText \
 			  -lblackbox
 
 all: $(TARGET)

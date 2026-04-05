@@ -117,7 +117,7 @@ int main(void)
             picasso_blit_bitmap(bf, bmp_example, 0, 0);
             picasso_blit_bitmap(bf, bmp_mine,    xpos, ypos);
 
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
         //----------------------------------------------------------------------

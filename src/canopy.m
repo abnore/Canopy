@@ -1,4 +1,7 @@
 #import <Cocoa/Cocoa.h>
+#import <CoreGraphics/CoreGraphics.h>
+#import <CoreText/CoreText.h>
+
 #import <blackbox.h>
 #import "canopy.h"
 
@@ -10,18 +13,38 @@ struct canopy_window {
     id view;
     id delegate;
 
-    framebuffer fb;
+    Framebuffer fb;
     double pixel_ratio; // support of high spi/retina screen
     uint32_t width_points, height_points; // Docs say points not pixels
     double mouse_x, mouse_y;
     bool should_close;
     bool is_opaque;
-    void *user_data; // support for passing data for callbacks
+    void *user_data; // support for passing data through callbacks
 
     void (*callback_key)(Window *, canopy_event_key*);
     void (*callback_text)(Window *, canopy_event_text*);
     void (*callback_mouse)(Window *, canopy_event_mouse*);
 };
+
+//------------------------------------------------------------------------------
+// Custom renderer. Holds a Core Graphics context using the framebuffer
+//------------------------------------------------------------------------------
+struct canopy_renderer {
+    CGContextRef ctx;
+    CGColorSpaceRef cs;
+    Framebuffer *fb;
+};
+//------------------------------------------------------------------------------
+// Font using the Core Graphics and Core Text frameworks
+//------------------------------------------------------------------------------
+
+struct canopy_font {
+    CGFontRef cgfont;
+    CTFontRef base_ct_font;
+    const void* keys[2];
+    float def_size;
+};
+
 
 //------------------------------------------------------------------------------
 // Window Delegate
@@ -67,7 +90,8 @@ struct canopy_window {
     NSDictionary* options = @{
         @"ApplicationName": @"Canopy",
         @"ApplicationVersion": @"0.1.0",
-        @"ApplicationIcon": icon ?: [NSImage imageNamed:NSImageNameApplicationIcon],
+        @"ApplicationIcon": icon ?:
+                     [NSImage imageNamed:NSImageNameApplicationIcon],
         @"Copyright": @"© 2025 Canopy",
         @"Credits": [[NSAttributedString alloc]
                     initWithString:@"Built with Maria using Cocoa and C"]
@@ -131,21 +155,50 @@ struct canopy_window {
 //support IME by implementing a handful of NSTextInputClient methods. Dont
 //implement, just stub them out to “fake it.”
 //------------------------------------------------------------------------------
-- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)ra
-                actualRange:(nullable NSRangePointer)actualRange {return nil;}
+- (nullable NSAttributedString*)
+    attributedSubstringForProposedRange:(NSRange)range
+                            actualRange:(nullable NSRangePointer)actualRange
+                                        {return nil;}
 - (NSUInteger)characterIndexForPoint:(NSPoint)point {return 0;}
-- (void)doCommandBySelector:(nonnull SEL)selector{}
-- (NSRect)firstRectForCharacterRange:(NSRange)ra
-    actualRange:(nullable NSRangePointer)actualRange{ NSRect r = {}; return r;}
+- (NSRect)firstRectForCharacterRange:(NSRange)range
+                         actualRange:(nullable NSRangePointer)actualRange
+                                                    {NSRect r = {}; return r;}
 - (BOOL)hasMarkedText {return markedText.length > 0;}
 - (NSRange)markedRange {return NSMakeRange(0, markedText.length);}
 - (NSRange)selectedRange {NSRange r = {}; return r;}
-- (void)setMarkedText:(nonnull id)string selectedRange:(NSRange)selectedRange
-     replacementRange:(NSRange)replacementRange {}
-- (void)unmarkText {}
+- (void)setMarkedText:(nonnull id)string
+        selectedRange:(NSRange)selectedRange
+     replacementRange:(NSRange)replacementRange{}
+- (void)unmarkText{}
 - (nonnull NSArray<NSAttributedStringKey> *)validAttributesForMarkedText
     {return [NSArray array];}
 
+// Need to send \n and \t etc, as these are commands not just text
+- (void)doCommandBySelector:(nonnull SEL)selector
+{
+    if (selector == @selector(insertNewline:) ||
+        selector == @selector(insertNewlineIgnoringFieldEditor:) ||
+        selector == @selector(insertLineBreak:))
+    {
+        canopy_event e = {0};
+        e.type = CANOPY_EVENT_TEXT;
+        e.text.utf8[0] = '\n';
+        e.text.utf8[1] = '\0';
+
+        push_event(e);
+    }
+    else if (selector == @selector(deleteBackward:)) {
+        // handled so far via keyDown and keyUp
+    }
+    else if (selector == @selector(insertTab:)) {
+        canopy_event e = {0};
+        e.type = CANOPY_EVENT_TEXT;
+        e.text.utf8[0] = '\t';
+        e.text.utf8[1] = '\0';
+        push_event(e);
+    }
+    //TODO: handle other control commands later
+}
 // All the code above enables this code to fire. It sends a character per event
 - (void)insertText:(nonnull id)string
   replacementRange:(NSRange)replacementRange
@@ -606,8 +659,6 @@ void *get_window_user_data(Window *window)
 }
 bool window_should_close(Window *window)
 {
-    // This is being done in poll_events now
-//    pump_events();  // Keep the UI alive
     return window->should_close;
 }
 void set_window_should_close(Window *window)
@@ -618,7 +669,7 @@ bool is_window_opaque(Window *window)
 {
     return [window->view isOpaque];
 }
-void set_window_transparent(Window *window, bool enable)
+void toggle_window_opaque(Window *window, bool enable)
 {
     if( enable ) {
         window->is_opaque = false;
@@ -633,15 +684,15 @@ void set_window_transparent(Window *window, bool enable)
         TRACE("Window opaque");
     }
 }
-framebuffer *get_framebuffer(Window *window)
+Framebuffer *get_framebuffer(Window *window)
 {
     return &window->fb;
 }
-framebuffer get_framebuffer_size(Window *window)
+Framebuffer get_framebuffer_size(Window *window)
 {
-    if (!window) return (framebuffer){0};
+    if (!window) return (Framebuffer){0};
 
-    return (framebuffer){
+    return (Framebuffer){
         .width = window->fb.width,
         .height = window->fb.height, // pixels
         .pixels = NULL,
@@ -652,12 +703,8 @@ framebuffer get_framebuffer_size(Window *window)
 }
 void present_buffer(Window *window)
 {
-    @autoreleasepool {
-        if( !window->fb.pixels ) {
-            ERROR("Tried to present a NULL framebuffer");
-            return;
-        }
-
+    @autoreleasepool
+    {
         NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
             initWithBitmapDataPlanes: (uint8_t**)&window->fb.pixels
                           pixelsWide: window->fb.width
@@ -679,17 +726,13 @@ void present_buffer(Window *window)
         [(NSView*)window->view layer].contents = image;
     }
 }
-void swap_backbuffer(Window *window, framebuffer *backbuffer)
+void swap_backbuffer(Window *window, Framebuffer *backbuffer)
 {
     if( !backbuffer || !backbuffer->pixels ) {
         ERROR("Backbuffer is NULL");
         return;
     }
 
-    if( !window->fb.pixels ) {
-        ERROR("Framebuffer in window is NULL");
-        return;
-    }
     uint32_t *temp = window->fb.pixels;
     window->fb.pixels = backbuffer->pixels;
     backbuffer->pixels = temp;
@@ -835,4 +878,174 @@ static bool init_framebuffer(Window *window)
     }
 
     return true;
+}
+
+/* Introducing font support.. This is just a test so far, will see how it turns
+ * out. Instead of using stb libraries, which are external dependencies; every
+ * OS always comes with support for font rendering natively.
+ * MacOS has CoreGraphics Frameworks with CoreText that does text. I want to
+ * investigate how that works with my custom frambuffer setup and renderer. */
+Font *load_font(const char *path)
+{
+    Font *f = canopy_malloc(sizeof(Font));
+    f->def_size = 12.0;
+    f->keys[0] = kCTFontAttributeName; // defaults to Helvetica 12, I override
+    f->keys[1] = kCTForegroundColorAttributeName;
+
+    CGFontRef cg = NULL;
+
+    if (path != NULL)
+    {
+        CGDataProviderRef data = CGDataProviderCreateWithFilename(path);
+        if (data)
+        {
+            cg = CGFontCreateWithDataProvider(data);
+            CGDataProviderRelease(data);
+
+            if (cg) {
+                INFO("Loaded font from file: %s", path);
+                f->base_ct_font = CTFontCreateWithGraphicsFont(cg, f->def_size,
+                        NULL, NULL);
+            }
+        }
+
+        // Supporting paths and system fonts directly
+        if (!cg)
+        {
+            CFStringRef name = CFStringCreateWithCString(NULL, path, UTF8);
+            f->base_ct_font = CTFontCreateWithName(name, f->def_size, NULL);
+
+            CFStringRef res_name = CTFontCopyPostScriptName(f->base_ct_font);
+
+            if (res_name && CFStringCompare(res_name, name, 0) == 0)
+            {
+                cg = CTFontCopyGraphicsFont(f->base_ct_font, NULL);
+                if (cg) INFO("Loaded as system font: %s", path);
+            }
+
+            if (res_name) CFRelease(res_name);
+            CFRelease(name);
+
+        }
+    }
+
+    if (!cg)
+    {
+        WARN("Falling back to Menlo");
+        CFRelease(f->base_ct_font);
+        f->base_ct_font = CTFontCreateWithName(CFSTR("Menlo"),f->def_size,NULL);
+        cg = CTFontCopyGraphicsFont(f->base_ct_font, NULL);
+    }
+
+    f->cgfont = cg;
+    return f;
+}
+
+/* Taken straight from CGBitmapContext.h:61
+
+   Create a bitmap context. The context draws into a bitmap which is `width'
+   pixels wide and `height' pixels high. The number of shuffled_color for each
+   pixel is specified by `space', which may also specify a destination color
+   profile.  Note that the only legal case when `space' can be NULL is when
+   alpha is specified as kCGImageAlphaOnly.The number of bits for each
+   component of a pixel is specified by `bitsPerComponent'. The number of bytes
+   per pixel is equal to `(bitsPerComponent * number of shuffled_color + 7)/8'.
+   Each row of the bitmap consists of `bytesPerRow' bytes, which must be at
+   least `width * bytes per pixel' bytes; in addition, `bytesPerRow' must be an
+   integer multiple of the number of bytes per pixel. `data', if non-NULL,
+   points to a block of memory at least `bytesPerRow * height' bytes. If `data'
+   is NULL, the data for context is allocated automatically and freed when the
+   context is deallocated. `bitmapInfo' specifies whether the bitmap should
+   contain an alpha channel and how it's to be generated, along with whether
+   the shuffled_color are floating-point or integer.
+
+   CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void*__nullable data,
+       size_t width, size_t height, size_t bitsPerComponent, size_t bytesPerRow,
+       CGColorSpaceRef __nullable space, CGBitmapInfo bitmapInfo)
+       API_AVAILABLE(macos(10.0), ios(2.0));
+*/
+
+Renderer *create_renderer(Framebuffer *fb)
+{
+    Renderer *r = canopy_malloc(sizeof(Renderer));
+    r->fb = fb;
+
+    r->cs = CGColorSpaceCreateDeviceRGB();
+    r->ctx = CGBitmapContextCreate( fb->pixels, fb->width, fb->height,
+                                    8, fb->pitch, r->cs,
+                                    kCGImageAlphaPremultipliedFirst |
+                                    kCGImageByteOrder32Little);
+
+    return r;
+}
+
+void swap_renderer(Renderer **a, Renderer **b) {
+    Renderer *tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+void destroy_renderer(Renderer *r) {
+    CGContextFlush(r->ctx);
+    CGContextRelease(r->ctx);
+    CGColorSpaceRelease(r->cs);
+    canopy_free(r);
+}
+
+void destroy_font(Font *f) {
+    CGFontRelease(f->cgfont);
+    CFRelease(f->base_ct_font);
+    canopy_free(f);
+}
+
+FontBounds draw_text(Renderer *r, Font *font, const char *text,
+                 float x, float y, float size, Color color)
+{
+    FontBounds b;
+    CFStringRef cf_string = CFStringCreateWithCString(NULL, text, UTF8);
+
+    float s = size > 0.f ? size : font->def_size;
+    CTFontRef ct_font = CTFontCreateCopyWithAttributes(font->base_ct_font,
+                                                       s,
+                                                       NULL,
+                                                       NULL);
+
+    // it will read bgra since i tell it 'a first' and then little endian
+    double shuffled_color[] = { color.b, color.g, color.r, color.a };
+    CGColorRef cg_color = CGColorCreate(r->cs, shuffled_color);
+
+    const void *values[] = { ct_font, cg_color };
+
+    CFDictionaryRef attrs = CFDictionaryCreate( NULL,
+                                                font->keys,
+                                                values,
+                                                2,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks
+                                                );
+
+    CFAttributedStringRef attr_string = CFAttributedStringCreate( NULL,
+                                                                  cf_string,
+                                                                  attrs);
+
+    CTLineRef line = CTLineCreateWithAttributedString(attr_string);
+    b.width = CTLineGetTypographicBounds(line,&b.ascent,&b.descent,&b.leading);
+
+    /* In order to get 0,0 be top-left, not bottom left which is the baseline
+     * of CoreGraphics, we get ascent (height of the text) and substract it
+     * from y based off of actual height */
+    // CGFloat ascent = CTFontGetAscent(ct_font);
+    float y_top = r->fb->height - y - b.ascent;
+
+    CGContextSetTextPosition(r->ctx, x, y_top);
+    CTLineDraw(line, r->ctx);
+
+    CFRelease(line);
+    CFRelease(attr_string);
+    CFRelease(attrs);
+    CFRelease(cg_color);
+    CFRelease(ct_font);
+    CFRelease(cf_string);
+
+    return b;
 }

@@ -36,7 +36,7 @@ int main(void)
     /* get_framebuffer(win) would return the framebuffer to the window, allowing
      * direct manipulation. This is the other way, for situations where it is
      * best to finish creating the buffer, and swap.*/
-    framebuffer fb = get_framebuffer_size(win);
+    Framebuffer fb = get_framebuffer_size(win);
     fb.pixels = canopy_malloc(fb.buffer_size);
 
     if (!fb.pixels) {

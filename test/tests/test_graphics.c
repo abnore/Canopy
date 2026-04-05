@@ -62,11 +62,11 @@ static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
 static inline void picasso__plot_aa(picasso_backbuffer *bf, int x, int y, color
         c, float alpha)
 {
-    if (x < 0 || x >= (int)bf->width || y < 0 || y >= (int)bf->height) return;
+    if (x < 0 || x >= (int)bf->base.width || y < 0 || y >= (int)bf->base.height) return;
 
     c.a = (uint8_t)(c.a * alpha);
     uint32_t src = color_to_u32(c);
-    uint32_t *dst_pixel = &bf->pixels[y * bf->width + x];
+    uint32_t *dst_pixel = &bf->base.pixels[y * bf->base.width + x];
     *dst_pixel = picasso__blend_pixel(*dst_pixel, src);
 }
 
@@ -111,7 +111,7 @@ int main(void)
 //    float count=500;
 //    float rate = 0.1f;
 
-    picasso_fill_rect(bf, &(picasso_rect){0,0,bf->width, bf->height},WHITE);
+    picasso_fill_rect(bf, &(picasso_rect){0,0,bf->base.width, bf->base.height},WHITE);
     picasso_draw_line_aa(bf, WIDTH/2, HEIGHT/2, 0,0, WHITE);
     picasso_draw_line_aa(bf, WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, PINK);
     picasso_draw_line_aa(bf, WIDTH/2, HEIGHT, WIDTH/2, 0, PURPLE);
@@ -151,7 +151,7 @@ int main(void)
             //    picasso_draw_circle_aa(bf, WIDTH/2,HEIGHT/2, 100, WHITE);
             picasso_draw_rainbow_circle_aa(bf, WIDTH/2,HEIGHT/2, 200);
             //    picasso_fill_circle_aa(bf, WIDTH/2,HEIGHT/2, 100, WHITE);
-            swap_backbuffer(win, (framebuffer*)bf);
+            swap_backbuffer(win, (Framebuffer*)bf);
             present_buffer(win);
         }
         //----------------------------------------------------------------------

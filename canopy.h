@@ -1,4 +1,4 @@
-//==============================================================================
+    //==============================================================================
 // Canopy - A Minimal Windowing & Input Library for macOS
 //
 // Author: Andreas Nore (github.com/abnore)
@@ -18,6 +18,162 @@
 #ifdef __cplusplus
 extern "C" { // Prevents name mangling of functions
 #endif
+
+
+// Available window style options for canopy windows.
+typedef enum {
+    CANOPY_WINDOW_STYLE_BORDERLESS              = 0,
+    CANOPY_WINDOW_STYLE_TITLED                  = 1,
+    CANOPY_WINDOW_STYLE_CLOSABLE                = 1 << 1,
+    CANOPY_WINDOW_STYLE_MINIATURIZABLE          = 1 << 2,
+    CANOPY_WINDOW_STYLE_RESIZABLE               = 1 << 3,
+    CANOPY_WINDOW_STYLE_UTILITY                 = 1 << 4,
+    CANOPY_WINDOW_STYLE_MODAL                   = 1 << 6,
+    CANOPY_WINDOW_STYLE_NONACTIVATING_PANEL     = 1 << 7,
+    CANOPY_WINDOW_STYLE_UNIFIED_TITLE_TOOLBAR   = 1 << 12,
+    CANOPY_WINDOW_STYLE_HUD                     = 1 << 13,
+    CANOPY_WINDOW_STYLE_FULLSCREEN              = 1 << 14,
+    CANOPY_WINDOW_STYLE_FULLSIZE_CONTENT        = 1 << 15,
+
+    CANOPY_WINDOW_STYLE_DEFAULT = CANOPY_WINDOW_STYLE_TITLED |
+                                  CANOPY_WINDOW_STYLE_CLOSABLE |
+                                  CANOPY_WINDOW_STYLE_MINIATURIZABLE |
+                                  CANOPY_WINDOW_STYLE_RESIZABLE
+} window_style;
+
+
+//------------------------------------------------------------------------------
+// Memory Allocation
+//------------------------------------------------------------------------------
+/* Custom allocators; or wrappers if not defined */
+void *canopy_calloc(size_t count, size_t size);
+void canopy_free(void *ptr);
+void *canopy_malloc(size_t size);
+void *canopy_realloc(void *ptr, size_t size);
+
+//------------------------------------------------------------------------------
+// Main Library
+//------------------------------------------------------------------------------
+/*
+    The canopy_window, named Window, is the main actor in this library, acting
+    as the bridge between C and Objective-C. In order to not expose the Obj-C
+    pointers, as they should not be accessed from user C-code, we will either
+    need to have nested structs (like GLFW which uses an opaque type to a
+    struct inside the higher level object), or just have the opaque type here.
+
+    This is a forward declaration — effectively saying:
+
+        “Hey compiler, Window is a struct that exists somewhere.
+        I don’t need to know what it looks like yet, just that it exists.”
+
+    This allows:
+        - Declaring pointers to it (Window*)
+        - Passing it to, and returning it from, functions
+
+    But you cannot:
+        - Dereference it
+        - Access its members directly
+        - Allocate it directly (its size is unknown)
+
+    In other words: it's opaque on purpose.
+    Same applies to the Renderer and the Font. The insides of these structs
+    are for implementation only, and not for the user.
+*/
+//==============================================================================
+typedef struct canopy_window Window;
+typedef struct canopy_renderer Renderer;
+typedef struct canopy_font Font;
+//==============================================================================
+
+#define CANOPY_BYTES_PER_PIXEL 4
+
+typedef struct {
+    uint32_t   *pixels;       // pixel buffer (RGBA)
+    uint16_t    width;        // width in pixels
+    uint16_t    height;       // height in pixels
+    uint32_t    pitch;        // number of bytes per row (row stride)
+    uint32_t    num_pixels;   // width * height
+    uint32_t    buffer_size;  // pitch * height
+} Framebuffer;
+
+/* Creates and shows a new window with the given title. Width and height are in
+ * points (logical size). The backing framebuffer is created in pixels, scaled
+ * to match the window’s content scale. Returns a pointer to the newly created
+ * window, or NULL on failure. */
+Window* create_window(char* title, int width, int height, window_style flags);
+void set_icon(const char* filepath);
+void free_window(Window* window);
+
+/* Creates a renderer that works on Core Graphics context. Used for font drawing
+ * as of now, maybe more later, and uses the framebuffers pixels the underlying
+ * canvas */
+Renderer* create_renderer(Framebuffer *fb);
+void destroy_renderer(Renderer *r);
+
+/* Processes all pending AppKit events and dispatches them to the internal
+ * event system. This includes window events, and must be called regularly to
+ * keep the UI alive and responsive. */
+void pump_messages();
+
+/* Blocks events from being registered. Regions where events are to be ignored,
+ * and have no back log build up */
+void block_events();
+void unblock_events();
+
+/* Gets the window scale (1.0, 2.0 etc) and size in points */
+double get_window_scale(Window *window);
+void get_window_size(Window *window, int *w, int *h);
+
+/* Attaches user data to the window object, allowing for callbacks to interact
+ * with outside data, such as audio */
+void set_window_user_data(Window *window, void *user_data);
+void *get_window_user_data(Window *window);
+
+/* Check if the window should close (e.g. user clicked the close button)
+ * Set sends a request to close the window */
+bool window_should_close(Window* window);
+void set_window_should_close(Window *window);
+
+/* Checks is the window opaque, and also you can set it transparent */
+bool is_window_opaque(Window *window);
+void toggle_window_opaque(Window *window, bool enable);
+
+/* Gets the framebuffer for the window, or a copy of all the fields, for local
+ * stack based manipulation. */
+Framebuffer* get_framebuffer(Window* window);
+Framebuffer get_framebuffer_size(Window *window);
+
+/* Presents the contents of the framebuffer to the window
+ * Optionally you can swap the backbuffer with the framebuffer, allowing better
+ * renders */
+void present_buffer(Window* window);
+void swap_backbuffer(Window* window, Framebuffer* bf);
+
+/*==============================================================================
+ * The font support
+ */
+#define UTF8 kCFStringEncodingUTF8
+
+typedef struct {
+    float r, g, b, a; // RGBA, but CG uses BGRA internally
+} Color;
+
+typedef struct {
+    double width, descent, ascent, leading;
+} FontBounds;
+
+Font *load_font(const char *path);
+void destroy_font(Font *f);
+
+/* Draws the text on screen at the given coordinates, and returns the width of
+ * the writetn text, or character written */
+FontBounds draw_text(Renderer *r, Font *font, const char *text,
+                     float x, float y, float size, Color color);
+
+/*==============================================================================
+ * The event system for Canopy.
+ * Supports polling and pushing input events.
+ */
 
 typedef enum {
     CANOPY_KEY_A = 0x00,
@@ -161,129 +317,6 @@ typedef enum {
     CANOPY_MAX_MOUSE_BUTTONS
 } canopy_mouse_button;
 
-// Available window style options for canopy windows.
-typedef enum {
-    CANOPY_WINDOW_STYLE_BORDERLESS              = 0,
-    CANOPY_WINDOW_STYLE_TITLED                  = 1,
-    CANOPY_WINDOW_STYLE_CLOSABLE                = 1 << 1,
-    CANOPY_WINDOW_STYLE_MINIATURIZABLE          = 1 << 2,
-    CANOPY_WINDOW_STYLE_RESIZABLE               = 1 << 3,
-    CANOPY_WINDOW_STYLE_UTILITY                 = 1 << 4,
-    CANOPY_WINDOW_STYLE_MODAL                   = 1 << 6,
-    CANOPY_WINDOW_STYLE_NONACTIVATING_PANEL     = 1 << 7,
-    CANOPY_WINDOW_STYLE_UNIFIED_TITLE_TOOLBAR   = 1 << 12,
-    CANOPY_WINDOW_STYLE_HUD                     = 1 << 13,
-    CANOPY_WINDOW_STYLE_FULLSCREEN              = 1 << 14,
-    CANOPY_WINDOW_STYLE_FULLSIZE_CONTENT        = 1 << 15,
-
-    CANOPY_WINDOW_STYLE_DEFAULT = CANOPY_WINDOW_STYLE_TITLED |
-                                  CANOPY_WINDOW_STYLE_CLOSABLE |
-                                  CANOPY_WINDOW_STYLE_MINIATURIZABLE |
-                                  CANOPY_WINDOW_STYLE_RESIZABLE
-} window_style;
-
-
-//------------------------------------------------------------------------------
-// Memory Allocation
-//------------------------------------------------------------------------------
-/* Custom allocators; or wrappers if not defined */
-void *canopy_calloc(size_t count, size_t size);
-void canopy_free(void *ptr);
-void *canopy_malloc(size_t size);
-void *canopy_realloc(void *ptr, size_t size);
-
-//------------------------------------------------------------------------------
-// Main Library
-//------------------------------------------------------------------------------
-/*
-    The canopy_window, named Window, is the main actor in this library, acting
-    as the bridge between C and Objective-C. In order to not expose the Obj-C
-    pointers, as they should not be accessed from user C-code, we will either
-    need to have nested structs (like GLFW which uses an opaque type to a
-    struct inside the higher level object), or just have the opaque type here.
-
-    This is a forward declaration — effectively saying:
-
-        “Hey compiler, Window is a struct that exists somewhere.
-        I don’t need to know what it looks like yet, just that it exists.”
-
-    This allows:
-        - Declaring pointers to it (Window*)
-        - Passing it to, and returning it from, functions
-
-    But you cannot:
-        - Dereference it
-        - Access its members directly
-        - Allocate it directly (its size is unknown)
-
-    In other words: it's opaque on purpose.
-*/
-//==============================================================================
-typedef struct canopy_window Window;
-//==============================================================================
-
-#define CANOPY_BYTES_PER_PIXEL 4
-
-typedef struct {
-    uint32_t   *pixels;       // pixel buffer (RGBA)
-    uint16_t    width;        // width in pixels
-    uint16_t    height;       // height in pixels
-    uint32_t    pitch;        // number of bytes per row (row stride)
-    uint32_t    num_pixels;   // width * height
-    uint32_t    buffer_size;  // pitch * height
-} framebuffer;
-
-/* Creates and shows a new window with the given title. Width and height are in
- * points (logical size). The backing framebuffer is created in pixels, scaled
- * to match the window’s content scale. Returns a pointer to the newly created
- * window, or NULL on failure. */
-Window* create_window(char* title, int width, int height, window_style flags);
-void set_icon(const char* filepath);
-void free_window(Window* window);
-
-/* Processes all pending AppKit events and dispatches them to the internal
- * event system. This includes window events, and must be called regularly to
- * keep the UI alive and responsive. */
-void pump_messages();
-
-/* Blocks events from being registered. Regions where events are to be ignored,
- * and have no back log build up */
-void block_events();
-void unblock_events();
-
-/* Gets the window scale (1.0, 2.0 etc) and size in points */
-double get_window_scale(Window *window);
-void get_window_size(Window *window, int *w, int *h);
-
-/* Attaches user data to the window object, allowing for callbacks to interact
- * with outside data, such as audio */
-void set_window_user_data(Window *window, void *user_data);
-void *get_window_user_data(Window *window);
-
-/* Check if the window should close (e.g. user clicked the close button)
- * Set sends a request to close the window */
-bool window_should_close(Window* window);
-void set_window_should_close(Window *window);
-
-/* Checks is the window opaque, and also you can set it transparent */
-bool is_window_opaque(Window *window);
-void set_window_transparent(Window *window, bool enable);
-
-/* Gets the framebuffer for the window, or a copy of all the fields, for local
- * stack based manipulation. */
-framebuffer* get_framebuffer(Window* window);
-framebuffer get_framebuffer_size(Window *window);
-
-/* Presents the contents of the framebuffer to the window
- * Optionally you can swap the backbuffer with the framebuffer, allowing better
- * renders */
-void present_buffer(Window* window);
-void swap_backbuffer(Window* window, framebuffer* bf);
-
-/*==============================================================================
- * The event system for Canopy.
- * Supports polling and pushing input events.
- */
 #define CANOPY_MAX_EVENTS 64
 
 /* Type of high-level events. */

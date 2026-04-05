@@ -341,20 +341,22 @@ static void picasso__normalize_rect(picasso_rect *r)
 static bool picasso__clip_rect_to_bounds(picasso_backbuffer *bf,
         const picasso_rect *r, picasso_draw_bounds *db)
 {
+    Framebuffer *b = &bf->base;
+
     if (!r || r->width == 0 || r->height == 0)
         return false;
 
-    if (r->x >= (int)bf->width || r->y >= (int)bf->height ||
+    if (r->x >= (int)b->width || r->y >= (int)b->height ||
         r->x + r->width <= 0 || r->y + r->height <= 0)
         return false;
 
     // Simple logic to force the rect inside the backbuffer
     db->x0 = (r->x > 0) ? r->x : 0;
     db->y0 = (r->y > 0) ? r->y : 0;
-    db->x1 = (r->x + r->width  < (int)bf->width)  ?
-        r->x + r->width  : (int)bf->width;
-    db->y1 = (r->y + r->height < (int)bf->height) ?
-        r->y + r->height : (int)bf->height;
+    db->x1 = (r->x + r->width  < (int)b->width)  ?
+        r->x + r->width  : (int)b->width;
+    db->y1 = (r->y + r->height < (int)b->height) ?
+        r->y + r->height : (int)b->height;
 
     return true;
 }
@@ -379,11 +381,12 @@ static inline uint32_t picasso__blend_pixel(uint32_t dst, uint32_t src)
 void draw_bitmap_to_backbuffer(picasso_backbuffer *bf, uint8_t *bitmap, int w,
                                 int h, int xoff, int yoff, color c)
 {
+    Framebuffer *b = &bf->base;
     for (int j = 0; j < h; ++j) {
         for (int i = 0; i < w; ++i) {
             int x = xoff + i;
             int y = yoff + j;
-            if (x < 0 || x >= (int)bf->width || y < 0 || y >= (int)bf->height)
+            if (x < 0 || x >= (int)b->width || y < 0 || y >= (int)b->height)
                 continue;
 
             uint8_t value = bitmap[j * w + i];
@@ -445,20 +448,16 @@ picasso_backbuffer *picasso_create_backbuffer(Window *window)
     int logical_w, logical_h;
     uint16_t fb_w, fb_h;
 
-    get_window_size(window, &logical_w, &logical_h);
-    framebuffer fb = get_framebuffer_size(window);
-    fb_w = fb.width;
-    fb_h = fb.height;
-
-    if (logical_w <= 0 || logical_h <= 0 || fb_w <= 0 || fb_h <= 0)
-        return NULL;
-
     picasso_backbuffer *bf = picasso_malloc(sizeof(*bf));
     if (!bf) return NULL;
 
-    bf->width = fb_w;
-    bf->height = fb_h;
-    bf->pitch = fb_w;
+    get_window_size(window, &logical_w, &logical_h);
+    bf->base = get_framebuffer_size(window);
+    fb_w = bf->base.width;
+    fb_h = bf->base.height;
+
+    if (logical_w <= 0 || logical_h <= 0 || fb_w <= 0 || fb_h <= 0)
+        return NULL;
 
     bf->logical_width = logical_w;
     bf->logical_height = logical_h;
@@ -466,8 +465,8 @@ picasso_backbuffer *picasso_create_backbuffer(Window *window)
     bf->scale_x = (float)fb_w / (float)logical_w;
     bf->scale_y = (float)fb_h / (float)logical_h;
 
-    bf->pixels = picasso_calloc((size_t)fb_w * (size_t)fb_h, sizeof(uint32_t));
-    if (!bf->pixels) {
+    bf->base.pixels = picasso_calloc((size_t)fb_w * (size_t)fb_h, sizeof(uint32_t));
+    if (!bf->base.pixels) {
         picasso_free(bf);
         return NULL;
     }
@@ -478,9 +477,9 @@ picasso_backbuffer *picasso_create_backbuffer(Window *window)
 void picasso_destroy_backbuffer(picasso_backbuffer* bf)
 {
     if (!bf) return;
-    if (bf->pixels) {
-        picasso_free(bf->pixels);
-        bf->pixels = NULL;
+    if (bf->base.pixels) {
+        picasso_free(bf->base.pixels);
+        bf->base.pixels = NULL;
     }
     picasso_free(bf);
 }
@@ -488,13 +487,13 @@ void picasso_destroy_backbuffer(picasso_backbuffer* bf)
 
 picasso_image *picasso_image_from_backbuffer(picasso_backbuffer *bf)
 {
-    if (!bf || !bf->pixels) return NULL;
+    if (!bf || !bf->base.pixels) return NULL;
 
-    picasso_image *img = picasso_alloc_image(bf->width, bf->height, 4);
+    picasso_image *img = picasso_alloc_image(bf->base.width, bf->base.height, 4);
     if (!img) return NULL;
 
-    for (int y = 0; y < (int)bf->height; ++y) {
-        for (int x = 0; x < (int)bf->width; ++x) {
+    for (int y = 0; y < (int)bf->base.height; ++y) {
+        for (int x = 0; x < (int)bf->base.width; ++x) {
             uint32_t *pixel = picasso__get_pixel_u32(bf, x, y);
             picasso__put_pixel_u8(img, x, y, pixel);
         }
@@ -545,7 +544,7 @@ void picasso_blit(
         picasso_rect dst_r)
 {
     // Early sanity checks to bail out early if anything is invalid
-    if (!dst || !src || !dst->pixels || !src->pixels) return;
+    if (!dst || !src || !dst->base.pixels || !src->pixels) return;
     if (src_r.width <= 0 || src_r.height <= 0) return;
 
     picasso__normalize_rect(&src_r);
@@ -652,18 +651,18 @@ void picasso_copy(picasso_image *src, picasso_image *dst)
 void* picasso_backbuffer_pixels(picasso_backbuffer* bf)
 {
     if (!bf) return NULL;
-    return (void*)bf->pixels;
+    return (void*)bf->base.pixels;
 }
 
 void picasso_clear_backbuffer(picasso_backbuffer* bf)
 {
-    if (!bf || !bf->pixels) {
+    if (!bf || !bf->base.pixels) {
         WARN("Attempted to clear NULL backbuffer");
         return;
     }
 
-    for (size_t i = 0; i <  bf->width * bf->height; ++i) {
-        bf->pixels[i] = color_to_u32(CLEAR_BACKGROUND);
+    for (size_t i = 0; i <  bf->base.width * bf->base.height; ++i) {
+        bf->base.pixels[i] = color_to_u32(CLEAR_BACKGROUND);
     }
 }
 
@@ -835,11 +834,11 @@ void picasso_draw_circle(picasso_backbuffer *bf, int x0, int y0, int radius, int
 // Helper: blend a pixel into the backbuffer using alpha (0–1)
 static inline void picasso__plot_aa(picasso_backbuffer *bf, int x, int y, color c, float alpha)
 {
-    if (x < 0 || x >= (int)bf->width || y < 0 || y >= (int)bf->height) return;
+    if (x < 0 || x >= (int)bf->base.width || y < 0 || y >= (int)bf->base.height) return;
 
     c.a = (uint8_t)(c.a * alpha);
     uint32_t src = color_to_u32(c);
-    uint32_t *dst_pixel = &bf->pixels[y * bf->width + x];
+    uint32_t *dst_pixel = &bf->base.pixels[y * bf->base.width + x];
     *dst_pixel = picasso__blend_pixel(*dst_pixel, src);
 }
 // Draws an anti-aliased circle centered at (cx, cy) with radius r
@@ -901,8 +900,8 @@ void picasso_draw_line(picasso_backbuffer *bf, int x0, int y0, int x1, int y1, c
 
     while (true) {
         // (basic clipping)
-        if (x0 >= 0 && x0 < (int)bf->width && y0 >= 0 && y0 < (int)bf->height) {
-            uint32_t *dst = &bf->pixels[y0 * bf->width + x0];
+        if (x0 >= 0 && x0 < (int)bf->base.width && y0 >= 0 && y0 < (int)bf->base.height) {
+            uint32_t *dst = &bf->base.pixels[y0 * bf->base.width + x0];
             *dst = picasso__blend_pixel(*dst, new_pixel);
         }
 
@@ -1040,10 +1039,10 @@ void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 pts, color c)
     int y2 = picasso__to_px_y(bf, pts.y3);
 
     // Clamp with proper types to avoid warnings
-    int min_x = PICASSO_CLAMP(PICASSO_MIN3(x0, x1, x2), 0, (int)bf->width - 1);
-    int max_x = PICASSO_CLAMP(PICASSO_MAX3(x0, x1, x2), 0, (int)bf->width - 1);
-    int min_y = PICASSO_CLAMP(PICASSO_MIN3(y0, y1, y2), 0, (int)bf->height - 1);
-    int max_y = PICASSO_CLAMP(PICASSO_MAX3(y0, y1, y2), 0, (int)bf->height - 1);
+    int min_x = PICASSO_CLAMP(PICASSO_MIN3(x0, x1, x2), 0, (int)bf->base.width - 1);
+    int max_x = PICASSO_CLAMP(PICASSO_MAX3(x0, x1, x2), 0, (int)bf->base.width - 1);
+    int min_y = PICASSO_CLAMP(PICASSO_MIN3(y0, y1, y2), 0, (int)bf->base.height - 1);
+    int max_y = PICASSO_CLAMP(PICASSO_MAX3(y0, y1, y2), 0, (int)bf->base.height - 1);
 
     float denom = (float)((y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2));
     if (denom == 0.0f) return;
@@ -1056,7 +1055,7 @@ void picasso_fill_triangle(picasso_backbuffer *bf, picasso_point3 pts, color c)
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
                 uint32_t src = color_to_u32(c);
-                uint32_t *dst = &bf->pixels[y * bf->width + x];
+                uint32_t *dst = &bf->base.pixels[y * bf->base.width + x];
                 *dst = picasso__blend_pixel(*dst, src);
             }
         }
